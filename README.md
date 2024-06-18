@@ -14,7 +14,7 @@ The development of this LLM model aims at extracting relevent informations from 
 	- 2 - Once all the chunks are embedded, we store them in a vector database. When the user types a query, it gets embedded by the same model previously used, then a similarity search returns the top_k closest chunks from the vector database. To do so, we need two elements : 1) a metric to mesure the distance between emdeddings (Euclidean distance, Cosinus similarity, Dot product) and 2) a search algorithm to find the closest elements (FAcebook's FAISS). Our particular model works well with cosinus similarity.
 	- 3 - Finally, the content of the retrieved documents is aggregated together into the "context", which is also aggregated with the query into the prompt. It's fed to the LLM to generate answers.
 
-Below a perfect illustration of the RAG steps : 
+- Below a perfect illustration of the RAG steps : 
 
  
 <p align="center">
