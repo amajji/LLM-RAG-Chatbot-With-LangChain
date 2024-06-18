@@ -1,0 +1,1076 @@
+JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 1
+Multi-Task Learning with Multi-Query Transformer
+for Dense Prediction
+Yangyang Xu, Xiangtai Li, Haobo Yuan, Yibo Yang, Lefei Zhang, Senior Member, IEEE
+Abstract —Previous multi-task dense prediction studies de-
+veloped complex pipelines such as multi-modal distillations in
+multiple stages or searching for task relational contexts for each
+task. The core insight beyond these methods is to maximize
+the mutual effects of each task. Inspired by the recent query-
+based Transformers, we propose a simple pipeline named Multi-
+Query Transformer (MQTransformer) that is equipped with
+multiple queries from different tasks to facilitate the reasoning
+among multiple tasks and simplify the cross-task interaction
+pipeline. Instead of modeling the dense per-pixel context among
+different tasks, we seek a task-speciﬁc proxy to perform cross-
+task reasoning via multiple queries where each query encodes
+the task-related context. The MQTransformer is composed of
+three key components: shared encoder, cross-task query attention
+module and shared decoder. We ﬁrst model each task with a
+task-relevant query. Then both the task-speciﬁc feature output
+by the feature extractor and the task-relevant query are fed into
+the shared encoder, thus encoding the task-relevant query from
+the task-speciﬁc feature. Secondly, we design a cross-task query
+attention module to reason the dependencies among multiple
+task-relevant queries; this enables the module to only focus on
+the query-level interaction. Finally, we use a shared decoder to
+gradually reﬁne the image features with the reasoned query
+features from different tasks. Extensive experiment results on
+two dense prediction datasets (NYUD-v2 and PASCAL-Context)
+show that the proposed method is an effective approach and
+achieves state-of-the-art results. Code and models are available
+at https://github.com/yangyangxu0/MQTransformer.
+Index Terms —Scene Understanding, Multi-Task Learning,
+Dense Prediction, Transformers
+I. I NTRODUCTION
+HUMANS are excellent at accomplishing multiple tasks
+simultaneously in the same scene. In computer vision,
+Multi-Task Dense Prediction (MTDP) [1], [2] requires a model
+to directly output multiple task results such as semantic seg-
+mentation, depth estimation, normal prediction and boundary
+detection. High-performance MTDP results are important for
+several applications, including robot navigation and planning.
+Previous works use Convolution Neural Networks (CNNs)
+to capture different types of features for each task. Several
+approaches [3]–[7] exploring task association achieved impres-
+sive results in MTDP. Recently, transformer-based methods
+Yangyang Xu, Haobo Yuan and Lefei Zhang are with the School of
+Computer Science, Wuhan University; E-mail: yangyangxu@whu.edu.cn,
+yuanhaobo@whu.edu.cn, zhanglefei@whu.edu.cn.
+Xiangtai Li is with the Key Laboratory of Machine Perception,
+MOE, School of Artiﬁcial Intelligence, Peking University; E-mail:
+lxtpku@pku.edu.cn.
+Yibo Yang with the JD Explore Academy; E-mail: ibo@pku.edu.cn.
+Yangyang Xu and Xiangtai Li contribute equally.
+Corresponding author: Lefei Zhang.
+Manuscript received xx xx, 2023; revised xx xx, 2023.have achieved promising results on various vision tasks [8]–
+[10]. However, how to effectively learn and exploit the task-
+relevant information is still a promising direction.
+Current MTDP methods are accomplished by learning a
+shared representation for multi-task features and can be cat-
+egorized into the encoder-focused (Fig. 1(a)) and decoder-
+focused (Fig. 1(b)) methods based on where the fusion of task-
+speciﬁc features occurs . As shown in Fig. 1(a), the encoder-
+focused methods [11], [13], [14] share a generic feature and
+each task has a speciﬁc head to perform task prediction.
+However, encoder-focused methods result in each task being
+individual and there are no task association operations. To this
+end, the decoder-focused models [4], [5], [7], [12] focus on the
+relationships among tasks via a variety of approaches. Neural
+architecture search (NAS) [7], [15], [16] and knowledge dis-
+tillation [17] techniques are leveraged to ﬁnd complementary
+information via the associated task sharing. For example, the
+work [15] is designed for determining effective feature sharing
+across tasks. Decoder-focused models for MDPT are usually
+of high computational cost due to the multiple states and
+roads needed for the interaction, such as the multi-modal
+distillation module of ATRC [7]. Moreover, decoder-focused
+methods often contain complex pipelines and need speciﬁc
+human design.
+Recently, several transformer models [18] show simpler
+pipelines and promising results. In particular, the dense pre-
+diction Transformer (DPT) [19] exploits vision Transformers
+as a backbone for dense prediction tasks. The encoder-decoder
+architecture with object query [18], [20] mechanism is proved
+to be effective in reasoning the relations among multiple
+objects and the global feature context. The object query design
+jointly tackles the interaction in two aspects: the relationship
+among queries and the interaction between feature and query.
+These successes inspire us to explore the potential of the
+multi-query Transformer with multiple task-relevant queries
+for multiple tasks learning where each query represents one
+speciﬁc task. Each task can be correlated via query reasoning
+among different tasks. This query-based approach takes into
+account both the interaction between objects and making each
+query more explicitly associated with a speciﬁc spatial location
+and thus achieving an understanding of the full scene.
+In this work, we introduce the Multi-Query Transformer
+(MQTransformer) for multi-task learning of six dense pre-
+diction tasks, including semantic segmentation, human parts
+segmentation, depth estimation, surface normal prediction,
+boundary detection, and saliency estimation. There are three
+key designs. Firstly, as illustrated in Fig. 1 (c) (setting two
+tasks for illustration purposes), we leverage multiple task-arXiv:2205.14354v4  [cs.CV]  7 Apr 2023JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 2
+Task 1 
+PredictionTask 2 
+PredictionTask 1 
+PredictionTask 2 
+PredictionBackbone
+Task 1 Task 2
+Task 1 Task 2Backbone
+Task 1 Task 2  
+Task 1 Task 2  FusionBackbone
+Task 1 
+QueryTask 2 
+Query
+DecoderEncoder
+Task 1 
+PredictionTask 2 
+PredictionTask 1 Query Task 2 Query 
+Task 1 Task 2  Fusion
+(a) Encoder -focused (b) Decoder -focused (c) Our Solution: MQTransformer
+Fig. 1. Illustration of different approaches for solving the MTDP task. We separate the encoder-focused and decoder-focused models based on where the task
+fusion occurs. (a) The baseline method proposed in [11] selects features from the shared encoder. (b) The fusion in (b) is performed in different manners,
+such as spatial attention [12], distillation [4], [7]. (c) The proposed method adopts multiple task-relevant queries with Transformer and performs joint learning
+among different queries with a shared encoder and decoder.
+relevant queries (according to task number) as the input of the
+encoder. The encoder outputs the learnt task-relevant query
+feature of each task. Secondly, we design an efﬁcient cross-
+task query attention module to facilitate the interaction of
+these task-relevant queries; this enables the cross-task query
+attention module to only focus on the query level, therefore,
+reducing complexity (see Tab. I). Thirdly, the task-relevant
+queries after cross-task query attention serves as the input
+of the following shared decoder. The shared decoder outputs
+the corresponding task-speciﬁc feature maps according to the
+number of tasks and applies them separately to task prediction.
+Since the task association is performed on the query level,
+we avoid heavy pixel-level context computation as used in
+previous work [7]. As demonstrated in Fig. 2, we show
+the difference between our multi-query attention (Right) and
+cross-task self-attention (Left) in more detail. Fig. 2 (a) shows
+the query, key and value in self-attention from the different
+task features. Self-attention ﬁrst calculates the dot product of
+the query with keys and then uses a softmax function to obtain
+the attention map on the value. We initialize independent
+multiple task-relevant queries as the attention mechanism input
+of the query and the key and value come from the task
+feature. We compute the task queries and key to obtain task
+queries with a valuable feature. Finally, we compute the dot
+product of the task queries and value, resulting in the ﬁnal
+values, as depicted in Fig. 2 (b). In addition, the computational
+complexity of our method is more friendly than cross-task self-
+attention.
+In our experiments, our method is compatible with a
+wide range of backbones, such as CNN [21] and vision
+Transformer [10], [22]. We show the effectiveness of our
+query interaction among different tasks in various settings
+on different task metrics. Moreover, our experimental results
+demonstrate that the MQTransformer achieves better results
+(a) Cross -task Self -Attentionquery
+keys valuesTask Feature Task Feature
+keys valuesTask Feature
+Task Queries
+(b) Our Multi -query Attentionattention map attention mapsoftmax
+Complexity: O((HW)  · C) 2 Complexity: O((HW)· 3N· C) (HW)
+(3N)(HW) (HW)Fig. 2. The structure of different attention mechanisms for MTDP: (a)
+The cross-task self-attention mechanism with pixel-wised afﬁnity learning.
+(b) Our model adopts multiple task-relevant queries with attention. Different
+colors represent different tasks. By replacing pixel-level afﬁnity calculation
+across tasks, our method introduces task-relevant queries to encode task-aware
+context and perform cross-task query learning in an efﬁcient manner.
+than the previous methods in Fig. 1 (a) and (b). Our ﬁnding
+demonstrates that multiple task-relevant queries play an impor-
+tant role in MTDP. Another key insight is that the interaction
+of query features captures dependencies for different tasks.
+The main contributions of this work can be summarized as
+follows:
+1) We propose a new method, named MQTransformer,
+which effectively incorporates multiple task-relevant
+queries and task-speciﬁc features of the feature extraction
+for multi-task learning of dense prediction tasks, resultingJOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 3
+in a simpler and stronger encoder-decoder network ar-
+chitecture. To the best of our knowledge, this is the ﬁrst
+exploration of multi-task dense prediction with a task-
+relevant query-based Transformer.
+2) We present the cross-task query attention module to
+enable sufﬁcient interaction of the multiple task-relevant
+queries across tasks. Thus, the dependencies carried by
+each task query feature can be maximally reﬁned. In
+addition, cross-task query attention only focuses on the
+query-level features, therefore, reducing complexity.
+3) We conduct extensive experiments on two dense predic-
+tion datasets: NYUD-v2 and PASCAL-Context. Exten-
+sive experiment results show that MQTransformer consis-
+tently outperforms several competitive baseline methods.
+Notably, the proposed model exhibits signiﬁcant improve-
+ments for different tasks compared with the latest state-
+of-the-art results.
+II. R ELATED WORK
+Multi-Task learning for Dense Prediction (MTDP). As
+deep neural networks have gradually become the mainstream
+framework for computer vision, multi-task learning has also
+developed tremendously. Multi-task learning is typically used
+when related tasks can make predictions simultaneously. Many
+multi-task learning models [2], [3], [5], [23]–[28] have been
+widely used in various computer vision tasks. Recent work
+like [24] improves multi-task learning performance by co-
+propagating intra-task and inter-task pattern structures into
+task-level patterns, encapsulating them into end-to-end net-
+works. Furthermore, the work [7] proposed an Adaptive
+Task-Relational Context (ATRC) module, which leverages a
+multi-modal distillation module to sample the features of
+all available contexts for each task pair, explicitly consid-
+ering task relationships while using self-attention to enrich
+the features of the target task. The work [29] designed an
+anomaly detection framework based on multi-task learning
+through self-supervised and model distillation tasks. CNN-
+based architectures [30]–[32] are proposed to capture the
+local information for the dense prediction task. In [7], [17],
+the knowledge distillation is employed for dense prediction
+tasks. NDDR-CNN [33] presents a CNN structure called
+neural discriminative dimensionality Reduction for multi-task
+learning, which enables automatic feature fusing at every layer
+and is formulated by combining existing CNN components
+in a new way with clear mathematical interpretability. In
+MTI-Net [5] network, the multi-scale multi-modal distillation
+unit is designed to perform task interaction on very scale
+features and the aggregation unit aggregates the task features
+from all scales to produce the ﬁnal predictions for each task.
+Recent work has attempted to use search learning to mold
+an optimal architecture. The vast majority of these methods
+are trained using multi-scale features, where a grid search is
+typically used to select appropriate weights [7]. Some works
+focus on building encoder-decoder networks to back-propagate
+high-level semantic contextual information from small-scale
+features to large-scale features through layer-by-layer up-
+sampling. Several works [34], [35] integrate the FPN [36]backbone bottom-up to generate multi-scale feature pyramids
+for dense prediction. Dense prediction transformer-based [14],
+[19] encoder-decoder employs attention [20] computational
+operations to obtain ﬁne-grained and globally consistent fea-
+tures to perform dense prediction tasks. In this paper, we
+explore Multi-Query Transformer for MTDP and propose a
+new method to adopt Vision Transformer into MTDP.
+Vision Transformers. Currently, due to the unprecedented
+success of the Transformer [20] in natural language processing
+(NLP), many computer vision efforts are enthusiastically ap-
+plying the Transformer to vision tasks [37]–[42], starting with
+the Vision Transformer (ViT) [8]. The image is segmented
+into a ﬁxed number of patches and they are embedded into
+a “token” as input. And project them into the feature space,
+where the converter encoder computes the queries, keys and
+values to generate the ﬁnal result [43]. The encoder-decoder-
+based design Transformer has been applied to object detection,
+image classiﬁcation and instance segmentation tasks [9], [10],
+[18] and has demonstrated the great potential of attention-
+based models. Various Transformer variants are based on
+self-attention and leveraged to serve the computer vision,
+such as Deformable DETR [44], T2T-ViT [45], PVT [14],
+Swin-Transformer [10] and ViTAE [46]. DeiT [47] further
+extended ViT by employing a new distillation method in
+which the Transformer learns more from images than others
+with similar Transformers. Moreover, several vision transform-
+ers [9], [48]–[52] adopt DETR-like architecture to simplify
+the complex pipeline. Unit [53] proposes to learn cross-modal
+and cross-task using the DETR-like model. Concerning dense
+scene understanding tasks, attention mechanisms approach
+to efﬁciently maintain multi-scale features in the network.
+MTFormer [54] designs the shared transformer encoder and
+shared transformer decoder, and task-speciﬁc self-supervised
+cross-task branches are introduced to obtain ﬁnal outputs,
+which increases the MTL performance. InvPT [55] is designed
+to learn the long-range interaction in both spatial and all-
+task contexts on the multi-task feature maps with a gradually
+increased spatial resolution for multi-task of dense prediction.
+Recently, these successful works are designed using Trans-
+former architecture to learn good representations for multiple
+vision tasks.
+Differing from previous models [19], [54], [55], our work
+explores vision Transformers for multi-task representation and
+is complementary to these efforts where all the vision Trans-
+formers serve as the feature extractor or instance-level learner.
+Moreover, different from the object query in DETR [18],
+which represents the object in the scene, our task-relevant
+queries explore the relationship context among different tasks
+where the task-speciﬁc features are already encoded before
+reasoning.
+III. M ETHOD
+Overview. In this part, we will ﬁrst introduce the problem
+formulation and motivation of our approach in Sec. III-A. We
+present the details of our method and insights in Sec. III-B.
+Then we give the description of the loss function of our
+architecture in Sec. III-C.JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 4
+Feature 
+ExtractorShared
+EncoderShared
+DecoderTask -
+Specific
+Features
+Multi -Query Transformer L earningShared
+Encoder
+Task PredictionShared
+EncoderTask 1 Query
+Task 2 Query
+Task T Query···Shared
+Decoder
+Shared
+Decoder
+······
+···
+···Normals Head Part Head Seg Head
+Cross-Task 
+Query 
+Attention 
+Module
+Fig. 3. An overview of MQTransformer. The MQTransformer represents multiple task-relevant queries to extract task-speciﬁc features from
+different tasks and performs joint multi-task learning. Here, we show an example of task-speciﬁc policy learned using our method. Note that
+the encoder (aqua) and decoder (mauve) are shared in our model. The number of task queries depends on the number of tasks. There are
+Ttasks. The task query ﬁrst generates uniform initialization weights and then applies these task queries to encode from the corresponding
+task-speciﬁc feature in the shared encoder. The ’Seg’, ’Part’ and ’Normals’ mean semantic segmentation and human part segmentation and
+surface normals tasks, respectively.
+A. Problem Formulation and Motivation
+To facilitate the description of the components in the
+model, we ﬁrst brieﬂy introduce the basic notation of the
+Transformer [20]. For short, we term these operations in-
+cluding Multi-Head Self-Attention (MHSA), Multi-Layer Per-
+ceptron (MLP) and Layer Normalisation (LN). An image
+x2RHW3is fed into the feature extractor and then
+generates a task-speciﬁc feature X2RH=4W=4C. There
+are two kinds of features described in our model. One is
+the task-speciﬁc feature X2RH=4W=4Cand the other
+is the task query p2RNC.H,WandCare the height,
+width and channel. Nis a pre-deﬁned constant number. We
+perform reshape operation to ﬂatten the task-speciﬁc feature
+RH=4W=4Cto a 1D sequence RLC(L=H=4W=4).L
+is the number of pixels of a task-speciﬁc feature.
+The goal of MTDP is to directly output several independent
+dense prediction maps. Previous works, including decoder-
+focused and encoder-focused, pay more attention to the design
+space of a cross-task query interaction. There are two main
+problems: one is the huge computation cost and afﬁnity mem-
+ory in the case of the cross-task, even though only one scale
+is considered. The other is the complex pipeline for modeling
+each decoder, such as NAS. Moreover, how to adapt a vision
+transformer for MTDP is still an open question. To tackle
+those two problems and explore a new vision transformer
+architecture for MTDP, we present a multi-query Transformer.
+B. Multi-Query Transformer (MQTransformer)
+Overview. As shown in Fig. 3, our MQTransformer contains
+feature extractor and multi-query transformer learning. The
+former extracts features, while the latter is a multi-query
+transformer to perform cross-task query association. The latter
+contains a shared encoder, a cross-task query attention moduleand a shared decoder where the task-relevant queries are the
+inputs and perform that task association.
+Feature Extractor. We ﬁrst extract image features for each
+input image. It contains a backbone network (Convolution
+Neural Network [21] or Vision Transformer [10]). This results
+in a set of multi-scale features. We fuse these features into
+one single high-resolution feature map (task-speciﬁc feature
+in Fig. 3) via addition and bilinear interpolation upsampling.
+Motivation of Multi-Query Transformer. Our key insight
+is to replace complex pixel-wised task associations with task-
+relevant queries. To achieve that, we use a shared encoder
+to encode each task-speciﬁc feature into their corresponding
+queries. Then the task association can be performed within
+these queries. Finally, the reﬁned task-speciﬁc features can
+be decoded from the reasoned queries with another shared
+decoder.
+Shared Encoder. We feed the extracted task-speciﬁc feature
+and the task-relevant query into a shared encoder. Such en-
+coder builds the one-to-one connection between features and
+queries on different tasks, which is shown in the pink box in
+Fig. 4.
+The task-relevant query p2RNCvector is uniformly
+initialized and is not further optimized. A task-relevant query
+corresponds to just one task. Normally we will produce the
+number of task-relevant queries according to the number of
+tasks. The learned positional encodings [20] eq2RNC(see
+Fig. 4 blue circle) are added to the task-relevant query before
+regularization using LN. Then they are used as a query input
+for the MHSA in the shared encoder. The task-speciﬁc feature
+X2RH=4W=4Cfrom the feature extractor is reshaped to
+x2RLC, and added to positional encoding ek2RLC(see
+Fig. 4 black circle), and then input to the MHSA as keyandJOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 5
+𝑝2k
+vQuery 
+Learning
+Cross -Task Query Attentionq
+Shared Encoderp' ^
+q
+kv
+Shared DecoderLN
+&
+MHSALN
+& 
+MLP
+C𝑝1^
+𝑝2^
+split𝑝1^
+𝑝2^Self-
+Attention
+LN
+& 
+MLP
+𝑋2^^𝑋1𝑝1
+Shared Encoder
+Shared DecoderT=2
+T=2N×C
+N×C2N×C
+N×C
+N×C2N×C
+task-relevant query: N×C
+task specific features: L ×C
+task 1 feature: L×C
+task 2 feature: L×C
+Position EmbeddingC
+Concatenation ForwardT
+Task Number Element -wise Add
+q, k, v
+Query, Key, Value𝑋1
+𝑋2
+T=2T=2LN
+&
+MHSALN
+& 
+MLPp
+Fig. 4. Illustration of the Multi-Query Transformer (MQTransformer). We use a shared encoder to obtain the valuable task-relevant query
+through the input of task-speciﬁc features Xtand task-relevant query pt(tdenotes the task number). The task-relevant queries ^pafter
+the upstream operation are concatenated by cross-task. The cross-task query attention module leads to the concatenated task-relevant query
+interaction via self-attention. Then, the task-relevant query is split into a shared decoder where it outputs the task-speciﬁc features ^Xtfor
+ﬁnal predictions. To simplify these pipelines, we demonstrate two tasks ( i; e:; T = 2).
+TABLE I
+COMPLEXITY COMPARISON . W E COMPARE THE COMPUTATIONAL COMPLEXITY OF THE DIFFERENT SCHEMES FOR CROSS -TASK COMMUNICATION .H
+ANDWARE THE IMAGE HEIGHT AND WIDTH .C,N,ANDKARE HYPER -PARAMETERS . W E ADOPT C= 256 ,N= 100 ,ANDK= 9 WHEN
+CALCULATING GFLOP S. OUR CROSS -TASK QUERY ATTENTION IS NOT PERCEPTIVE TO THE RESOLUTION OF THE IMAGE .
+Method ComplexityGFLOPs
+6464 128128
+No Communication 0 0 0
+Global Context [7], [8] O((HW)2C) 9.74 142.83
+Local Context [7], [10] O(HWC2K2)21.74 86.98
+Cross-Task Query Attention (Ours) O(CN2) 0.03 0.03
+value . The formulation of MHSA is
+MHSA (Q;K;V ) =softmax (QKT=p
+d)V; (1)
+whereQ2RNC,K2RLCandV2RLCare
+the query, key and value tensors; ddenotes dimension C;
+MHSA (Q;K;V )2RNC. And then, the encoder is calcu-
+lated as follows, where task-speciﬁc features are encoded into
+query format:
+p0=p+MHSA (Q=LN(p);K=LN(X);V=LN(X)):
+(2)
+Query Learning in Shared Encoder. Then the task-relevant
+query ^pcaptures the task-relevant context. We use a linear
+layer (linear mapping) along with an identity connection as:
+p0=p0+Linear (LN(p0)); (3)where the ^p2RNCis the result after the query learning step.
+To enhance query learning, we adopt an extra layer norm and
+MLP (a non-linear GELU between the two linear layers) with
+an identity connection to update the task-relevant query. The
+projection can be formulated as follows:
+^p=p0+MLP(LN(p0)): (4)
+This operation can further reduce the inductive biases and
+enhance the communications in query. Each task-relevant
+query is processed independently and only gradually interacts
+with the image feature to learn dependencies.
+As shown in Fig 4 cross-task query attention module, we take
+task-relevant queries with two tasks for illustration. Each task-
+relevant query follows the same pipeline above. In the end, we
+obtain two different queries ( ^p1and^p2).JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 6
+Cross-Task Query Attention Module. Cross-Task Query
+Attention module aims to perform cross-task query learning
+for task-relevant queries ( ^p1and ^p2). We concatenate the
+task-relevant queries of the same from all tasks: Pcat=
+Concat (^p1;^p2).Pcat2R(N+N)Cis a cross-task query. Then
+we perform MHSA operation as follows:
+P0
+cat=Pcat+MHSA (Q=Pcat;K=Pcat;V=Pcat);(5)
+^Pcat=P0
+cat+MLP(LN(P0
+cat)): (6)
+The cross-task query attention module is designed to en-
+hance the communication of multiple task-relevant queries.
+After the task-relevant query interaction for different tasks,
+we split them according to the number of tasks for down-
+stream operation. We split the result ^Pcat2R(N+N)Cinto
+^p12RNCand^p22RNC.
+Our cross-task query attention module builds the relation
+from different tasks via query-level association. Compared
+with previous pixel-level or patch-level cross-task learning,
+it avoids heavy afﬁnity costs. Tab. I shows the complexity
+and GFLOPs of query-based attention. Our task-relevant query
+interaction reduces the required computation (Our cross-task
+query attention: 0.03 GFLOPs v.s. ATRC [7](global context):
+9.74 GFLOPs) with the 6464image feature as inputs.
+Because our cross-task query attention module complexity can
+only perceive NandCdimensions but not the resolution of
+the image.
+Shared Decoder. We propose a shared decoder to model the
+relations among queries, keys and values effectively under the
+guidance of the task-relevant query in the task-speciﬁc feature.
+There are two inputs for the shared decoder for each task, the
+learned task-relevant query ^p1and the task-speciﬁc feature X.
+As shown in Fig. 4 green box, the shared decoder contains a
+MHSA, LN and MLP. MHSA is applied to interact between
+the learned task-relevant query and the task-speciﬁc feature.
+We use the learned task-relevant query ^paskey/value and the
+task-speciﬁc feature Xasquery in MHSA. We leverage the
+^pandXto perform cross-attention [20]. In particular, the X
+(query ) and ^p(key/value ) are input into the MHSA. Therefore,
+each pixel of the task-speciﬁc feature Xcan have a long-
+range interaction with the learned task-relevant query. The
+learned task-relevant queries and image feature interactions
+in the shared decoder (Fig. 4 green box) can be written as
+follows:
+X0=X+MHSA (Q=LN(X);K=LN(^p);V=LN(^p));
+(7)
+^X=X0+MLP(LN(X0)); (8)
+where ^X2RLCis the task-speciﬁc feature. Then we con-
+duct a reshape operation to reshape the sequence ^X2RLC
+back to task-speciﬁc feature ^X2RH=4W=4C. Note that the
+encoder is shared across different tasks.
+However, we argue that task-relevant queries can absorb
+relevant features in a compact manner without the extra
+parameters brought by encoding or decoding for this purpose.
+We verify this in Sec. IV.C. Loss Function
+After adopting prediction heads for each task via 11
+convolution, we employ task-speciﬁc loss functions for each
+task. For semantic segmentation, human part segmentation and
+saliency detection, the cross-entropy loss is adopted. We use
+L1-Loss and balance binary cross-entropy losses for the depth,
+surface normals and boundary supervision, respectively. Then
+the ﬁnal training objective Lfor each task can be formulated
+as follows:
+L=segLseg+depthLdepth +normalsLnormals
++boundLbound +partsegLpartseg +salLsal;(9)
+whereLdenotes a total loss function. We set seg=1.0,
+depth =1.0,normals = 10.0,bound =50.0,partseg =2.0, and
+sal=5.0. For fair comparison, we adopt the same setting as
+ATRC [7].
+IV. E XPERIMENT
+A. Setup
+Datasets. Following previous works [7] in MTDP, we use
+NYUD-v2 [56] and PASCAL-Context [57] datasets. The
+NYUD-v2 dataset is comprised of video sequences of 795
+training and 654 testing images of indoor scenes. It con-
+tains four tasks, including semantic segmentation (SemSeg),
+Monocular depth estimation (Depth), surface normals pre-
+diction (Normals) and semantic boundary detection (Bound).
+PASCAL-Context contains 4,998 training images and 5,105
+testing images. It contains ﬁve tasks, including semantic
+segmentation (SemSeg), human part segmentation (PartSeg),
+saliency detection (Sal), surface normals prediction (Normals),
+and semantic boundary detection (Bound).
+Implementation details. Swin Transformer [10] (Swin-T,
+Swin-S and Swin-B indicate Swin Transformer with tiny, small
+and base, respectively.), ViT-L [8] (ViT-L means ViT-Large),
+ViTAEv2-S [22] and HRNet (HRNet18, HRNet48) [21] mod-
+els are adopted as the feature extractor. We mainly perform
+ablation studies using Swin Transformer. Our model follows
+the initialization scheme proposed in [7]. We use Pytorch
+Framework to implement all the experiments in one codebase.
+During training, we augment input images during training by
+random scaling with values between 0.5 and 2.0 and random
+cropping to the input size. We deploy the SGD optimizer with
+default hyper parameters. The learning rate is set to 0.001
+and weight decay is set to 0.0005. All the models are trained
+for 40k iteration steps with an 8 batch size on the NYUD-v2
+dataset. For the PASCAL-Context dataset, we follow the same
+setting in NYUD-v2. All the models adopt a single inference
+for both ablation and comparison. Note that in practice, we
+use two-scale task-speciﬁc features (in Fig. 4) and use pyramid
+features ablation shown in Tab. VI.
+Strong Multi-task baselines. The baseline model has the
+same architecture as MQTransformer. However, it does not
+contain MQTransformer prediction heads. It contains Tdif-
+ferent heads for different tasks. For Swin Transformer, we
+adopt the ADE-20k pre-trained model as the strong baseline.
+For HRNet, we follow the same setting as ATRC [7]. We
+argue that our baseline models are different from the previousJOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 7
+TABLE II
+COMPARISON RESULTS ON NYUD- V2DATASET . NOTATION ‘#’:LOWER IS BETTER . NOTATION ‘"’:HIGHER IS BETTER . ”P ARAMS ”DENOTES
+PARAMETERS . W E REPORT COMPARISONS ON VARIOUS BASELINE MODELS (IN THE FIRST AND SECOND SUB -FIGURES )AND SEVERAL RECENT WORKS .
+SINGLE TASK BASELINE INDICATES A MODEL CORRESPONDING TO ONLY A SINGLE TASK . SWIN-INDICATES THAT THE SPECIFIC SWIN MODEL IS
+UNCERTAIN .DENOTES RESULTS NOT REPORTED IN INVPT [55] BUT FROM OUR TEST .
+Model BackboneParams GFLOPs SemSeg Depth Normals Boundm[%]"(M) (G) (mIoU) " (rmse)# (mErr)# (odsF)"
+single task baseline HRNet18 16.09 40.93 38.02 0.6104 20.94 76.22 0.00
+multi-task baseline HRNet18 4.52 17.59 36.35 0.6284 21.02 76.36 -1.89
+single task baseline ViTAEv2-S 86.19 152.46 47.02 0.5865 20.98 76.40 0.00
+multi-task baseline ViTAEv2-S 22.17 76.44 43.65 0.5971 21.02 76.20 -2.33
+single task baseline Swin-T 115.08 161.25 42.92 0.6104 20.94 76.22 0.00
+multi-task baseline Swin-T 32.50 96.29 38.78 0.6312 21.05 75.60 -3.74
+single task baseline Swin-S 200.33 242.63 48.92 0.5804 20.94 77.20 0.00
+multi-task baseline Swin-S 53.82 116.63 47.90 0.6053 21.17 76.90 -1.96
+Cross-Stitch [26] HRNet18 4.52 17.59 36.34 0.6290 20.88 76.38 -1.75
+Pad-Net [4] HRNet18 5.02 25.18 36.70 0.6264 20.85 76.50 -1.33
+PAP [12] HRNet18 4.54 53.04 36.72 0.6178 20.82 76.42 -0.95
+PSD [24] HRNet18 4.71 21.10 36.69 0.6246 20.87 76.42 -1.30
+NDDR-CNN [33] HRNet18 4.59 18.68 36.72 0.6288 20.89 76.32 -1.51
+MTI-Net [5] HRNet18 12.56 19.14 36.61 0.6270 20.85 76.38 -1.44
+ATRC [7] HRNet18 5.06 25.76 38.90 0.6010 20.48 76.34 1.56
+MQTransformer (ours) HRNet18 5.23 22.97 40.47 0.5965 20.34 76.60 3.01
+MQTransformer (ours) ViTAEv2-S 26.18 94.77 48.37 0.5769 20.73 76.90 1.82
+MQTransformer (ours) Swin-T 35.35 106.02 43.61 0.5979 20.05 76.20 0.31
+MQTransformer (ours) Swin-S 56.67 126.37 49.18 0.5785 20.81 77.00 1.59
+MTFormer [54] Swin-  64.03 117.73 50.56 0.4830 - - 4.12
+InvPT [55] Swin-L - - 51.76 0.5020 19.39 77.60 -2.22
+InvPT [55] ViT-L 402.1555.5753.56 0.5183 19.04 78.10 -
+MQTransformer (ours) Swin-L 204.3 365.25 54.84 0.5325 19.67 78.20 -2.12
+TABLE III
+RESULTS ON THE PASCAL-C ONTEXT DATASET . W E ALSO REPORT COMPARISONS ON VARIOUS BASELINE MODELS (IN THE FIRST AND SECOND
+SUB-FIGURE )AND SEVERAL RECENT WORKS . THE NOTATION ‘#’:LOWER IS BETTER . THE NOTATION ‘"’:HIGHER IS BETTER .
+Model BackboneSemSeg PartSeg Sal Normals Boundm[%]"(mIoU)" (mIoU)" (maxF)" (mErr)# (odsF)"
+Single task baseline HRNet18 62.23 61.66 85.08 13.69 73.06 0.00
+multi-task baseline HRNet18 51.48 57.23 83.43 14.10 69.76 -6.77
+single task baseline ViTAEv2-S 68.81 58.05 82.89 13.99 71.10 0.00
+multi-task baseline ViTAEv2-S 64.66 56.65 81.02 14.93 70.70 -3.59
+single task baseline Swin-T 67.81 56.32 82.18 14.81 70.90 0.00
+multi-task baseline Swin-T 64.74 53.25 76.88 15.86 69.00 -3.23
+single task baseline Swin-S 70.83 59.71 82.64 15.13 71.20 0.00
+multi-task baseline Swin-S 68.10 56.20 80.64 16.09 70.20 -3.97
+MTI-Net [5] HRNet18 61.70 60.18 84.78 14.23 70.80 -2.12
+PAD-Net [4] HRNet18 53.60 59.60 65.80 15.3 72.50 -4.41
+ATRC [7] HRNet18 57.89 57.33 83.77 13.99 69.74 -4.45
+ASPP [58] ResNet50 62.70 59.98 83.81 14.34 71.28 1.77
+BMTAS [59] ResNet50 56.37 62.54 79.91 14.60 72.83 -0.55
+DYMU [60] MobileNetV2 63.60 59.41 64.94 - - 0.18
+ATRC [7] ResNet50 62.99 59.79 82.25 14.67 71.20 0.95
+MQTransformer (ours) HRNet18 58.91 57.43 83.78 14.17 69.80 -4.20
+MQTransformer (ours) ViTAEv2-S 69.10 58.23 83.51 13.73 71.30 0.72
+MQTransformer (ours) Swin-T 68.24 57.05 83.40 14.56 71.10 1.07
+MQTransformer (ours) Swin-S 71.25 60.11 84.05 14.74 71.80 1.27
+method using Swin Transformer. However, even on such
+a strong baseline, our method can still achieve signiﬁcant
+improvements. Moreover, we also prove the effectiveness and
+generation of our method on the CNN backbone in the ablation
+study (Sec. IV-C).
+Evaluation Metrics. Our evaluation follows the metrics
+scheme proposed in [7]. Semseg and PartSeg tasks are eval-
+uated with the mean intersection over union (mIoU) and
+Depth task using the root mean square error (rmse). Normals
+task using mean error (mErr), Sal task using maximum F-measure (maxF), and Bound task using the optimal-dataset-
+scale F-measure (odsF). The average per-task performance
+drop ( m) is adopted to quantify multi-task performance.
+m=1
+TPT
+i=1(Mm;i Ms;i)=Ms;i, where m and s mean
+multi-task model and single task baseline. T denotes the total
+tasks. m: the higher is the better. GFLOPs and Parameters
+are often used to evaluate model efﬁciency. To be speciﬁc,
+GFLOPs means ﬂoating point operations per second (the lower
+the better) and Parameters are used as an indirect indicator of
+computational complexity as well as memory usage (the lowerJOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 8
+TABLE IV
+ABLATION STUDIES AND ANALYSIS ON NYUD- V2DATASET USING A SWIN-SBACKBONE . QUERY LEARNING (QL) AND CROSS -TASK QUERY
+ATTENTION (CTQA) M ODULE ARE PART OF OUR MODEL . Q&C INDICATES QL AND CTQA. HR48 DENOTES HRN ET48. T HE NOTATION ‘#’:LOWER IS
+BETTER . THE NOTATION ‘"’:HIGHER IS BETTER . THEW/OINDICATES ”WITHOUT ”.
+ModelSemSeg Depth Normals Bound
+(mIoU)"(rmse)#(mErr)#(odsF)"
+w/o QL 48.97 0.5807 20.82 76.1
+w/o CTQA 48.93 0.5824 20.87 75.6
+w/o Q&C 48.64 0.5854 20.87 75.7
+Ours 49.18 0.5785 20.80 77.0
+(a)Ablation on different modulesDSemSeg Depth Normals Bound
+(mIoU)" (rmse)# (mErr)# (odsF)"
+1 49.18 0.5785 20.80 77.0
+2 47.80 0.6006 21.08 76.5
+4 47.88 0.5983 21.21 76.5
+(b)Ablation on the depths ( D) of our MQTransformer
+NSemSeg Depth Normals Bound
+(mIoU)" (rmse)# (mErr)# (odsF)"
+8 48.32 0.5974 20.90 76.9
+32 49.11 0.5803 20.58 77.0
+64 49.18 0.5785 20.80 77.0
+128 49.63 0.5820 20.84 77.1
+156 48.81 0.5941 20.87 76.8
+256 48.41 0.6014 21.01 76.7
+(c)Ablation on N. Query: P2RNCBackboneSemSeg Depth Normals Bound
+(mIoU)"(rmse)#(mErr)#(odsF)"
+HR48 (MT-B) 41.96 0.5543 20.36 77.6
+HR48+ATRC [7] 46.27 0.5495 20.20 77.6
+HR48+Ours 47.48 0.5374 20.06 78.0
+Swin-B (MT-B) 51.44 0.5813 20.44 77.0
+Swin-B+InvPT [55] 50.97 0.5071 19.39 77.3
+Swin-B+Ours 52.06 0.5439 19.85 77.8
+(d)Ablation on backbones. MT -B means Multi-task Baseline
+the better).
+B. Comparison with the state-of-the-art methods
+Results on NYUD-v2 dataset. As shown in Tab. II, we
+report our MQTransformer results compared with both pre-
+vious work [5], [7] and strong multi-task baseline. Note that
+the transformer-based multi-task baselines in Tab. II achieve
+strong results. Our MQTransformers achieve consistent gains
+for different backbones for each task. In particular, we observe
+2%-3% gains on depth prediction and semantic segmentation,
+1%-2% gains on normal prediction and boundary prediction
+within an extra 3% GFlops increase. Moreover, adopting the
+same backbone and same pre-training, our method consistently
+outperforms recent work ATRC [7] on HRNet18 with fewer
+parameters and GFlops. ATRC distills on the largest scale and
+task interactions do not appear to be sufﬁcient. This implies
+that our multiple task-relevant query design can adequately
+capture more dependencies between multiple tasks. Adopting
+the Swin-S backbone, our method achieves better results for
+semantic segmentation and comparable results on normals
+and boundary prediction. However, the depth prediction on
+NYUD-v2 is not perfect using Swin, we argue that this is
+because of the limited dataset size. We believe adding more
+depth data may lead to better results where similar ﬁndings
+are in previous works [8], [19], [61]. Our MQTransformer
+utilizes Swin-L as its backbone, which dramatically enhances
+MTL performance and surpasses the previous best-performing
+method ( i.e.,InvPT [55]) by +3.08 (mIoU) on SemSeg task.
+In addition, our method also achieves the drop in multi-
+task performance m. As shown in Tab. II, it is clear that
+MQTransformer outperforms other efﬁcient MTL of dense
+prediction frameworks dramatically. For example, MQTrans-
+former using Swin-L achieves +1.28 higher mIoU (54.84 v.s.
+53.56) than the competitive InvPT [55] using ViT-L as abackbone on NYUD-v2 with the fewer GFLOPs (365.25 (ours)
+v.s. 555.57 (InvPT)) and parameters ((204.3 (ours) v.s. 402.1
+(InvPT))) in Tab. II.
+Results on PASCAL-Context dataset. As shown in Tab. III,
+we also carry out experiments on PASCAL-Context dataset.
+We use four mainstream architectures as the backbone to eval-
+uate our MQTransformer, including HRNet18, ViTAREv2-S,
+Swin-T and Swin-S. Again, compared with the strong baseline,
+our method achieves consistent gains over ﬁve different tasks.
+Moreover, our MQTransformer achieves state-of-the-art results
+and outperforms previous works by a signiﬁcant margin. It can
+be shown by Tab. III that the proposed method achieves an
+improved prediction accuracy for different tasks on different
+backbones. In addition, we also visualize the feature map in
+Fig. 5, which shows that the predictions of other methods are
+coarse. In contrast, our method’s predictions are more ﬁne-
+grained and have more textures especially on SemSeg and
+Human Parts tasks. As shown in Tab. III, Fig. 5 and Fig. 8,
+these observations demonstrate that the proposed MQTrans-
+former grafts the merit of multiple task-relevant queries for
+capturing highly informative information.
+C. Ablation studies and Analysis
+Settings. For ablations, all models are trained using Swin-
+S as a backbone with batch size 8 on NYUD-v2 dataset and
+iteration 40k unless a speciﬁc statement is. For visual analysis,
+we adopt a trained model with Swin-S.
+Network Components. To verify the effectiveness of each key
+designed modules, we gradually extend the Swin-S baseline
+to our MQTransformer. We ﬁrst consider removing different
+modules in the whole model in Tab. IV (a). As shown in
+Tab IV (a) w/o QL and w/o CTQA, it indicates that query
+learning and cross-task query attention beneﬁt segmentation,
+depth estimation and boundary detection. Note that whenJOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 9
+InvPT ATRC Ours GT
+SemSeg Bound Normals Saliency Human Parts Input Image
+ SemSeg Boun d Normals Saliency Human Parts Input Image
+Fig. 5. Visual comparison results with ATRC [7] model predictions on PASCAL-Context. Our model results in the better prediction on
+semantic segmentation, human parts segmentation, saliency estimation, surface normal prediction, and boundary detection. Please note the
+human pictures detected in the ﬁrst three columns.
+TABLE V
+ABLATION ON SHARED AND NON -SHARED ENCODER -DECODER USING
+DIFFERENT BACKBONES ON NYUD- V2.
+Model BackboneSemSeg Depth Normals Bound
+(mIoU)" (rmse)# (mErr)# (odsF)"
+non-shared HR18 39.05 0.5985 20.41 76.50
+non-shared Swin-S 48.63 0.5873 20.89 77.00
+shared (Ours) HR18 40.47 0.5965 20.34 76.60
+shared (Ours) Swin-S 49.18 0.5785 20.80 77.00
+training a model without both QL and CTQA, this will lead
+to a signiﬁcant decrease the task performance. In fact, the full
+model achieves better accuracy, demonstrating the importance
+of each module for the ﬁnal predictions. In summary, the pro-
+posed components of the MQTransformer are each necessary
+and collectively increase +1.28 mIoU improvements.
+Depth of MQTransformer. In Tab. IV (b), as the number
+of the encoder and decoder depth increases, the accuracy
+does not seem to improve and even tends to decay. This
+means that only adding one encoder and decoder is enough.
+However, we believe using more data can achieve better results
+with the increase of depth, which is observed in [8], [19].
+we empirically set depth to 1 by default; thus our model is
+lightweight and efﬁcient.
+Varying Number of Query N.In Tab. IV (c), we change
+theNwithinN2 f8;32;64;128;156;256g. Compared to
+N=8,N=64 results in a signiﬁcant improvement of 2.71% in
+segmentation accuracy. However, this improvement saturates
+when more sections are added to the network at N=128.
+Notably, larger Nis not always better. When N=256, it makes
+an explicit decrease in accuracy for each task. Considering all
+the metrics, we chose N=64 by default.
+Inﬂuences of Different Backbones. Tab. IV (d) presents the
+effect of the SemSeg, Depth, Normals, and Bound values
+when adopting the individual backbones. As shown in that
+table, swin backbones have a high SemSeg value. Notably, our
+model applies to both CNN [21] and vision Transformer [10]
+backbones and improves accuracy on multiple tasks, indicating
+the generation ability of our approach. For these different
+backbones, our method improves the results of different tasks
+consistently.
+Effect of Shared Encoder and Decoder. We use two main-TABLE VI
+ABLATION ON A DIFFERENT NUMBER OF SCALES USING SWIN-S
+BACKBONE ON NYUD- V2.
+ModelSemSeg Depth Normals Bound
+(mIoU)" (rmse)# (mErr)# (odsF)"
+Single-Scale 48.92 0.5839 20.88 75.7
+Two-Scale 49.18 0.5785 20.80 77.0
+Four-Scale 49.38 0.6006 20.99 76.9
+(a) Sem Seg (e) Saliency (b) Human Parts
+Before Interact After Interact
+(c) Normals (d) Edge DetectionBefore Interact After Interact
+Before Interact After Interact Before Interact After InteractBefore Interact
+After Interact
+Fig. 6. Visualization activation maps on PASCAL-Context dataset.
+Qualitative comparison of changes resulting from interactions using
+cross-task query attention module.
+stream networks as the backbone to evaluate our MQTrans-
+former using shared encoder and decoder, including HRNet18
+and Swin-S. In Tab. V, we explore the shared encoder and
+decoder design where we ﬁnd that using a shared encoder
+and decoder in MQTransformer leads to better results in
+different settings with less parameter increase. This veriﬁes
+our motivation and key design in Sec. III.
+Effect of Scale Number in Shared Feature. To generate
+different scale shared features, we use shared feature X2
+RLC(in Fig. 4) to perform a sample downsampling operation
+and obtainX22RL
+4C. In Tab. VI, we ﬁnd that two scales
+are good enough. Compared with a single scale, our design
+obtains signiﬁcant gains over four tasks. Adding more scales
+does not bring extra gains. Thus we set the scale number to 2JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 10
+SemSeg Normals Depth Input Image Bound
+Fig. 7. Visualization results on NYUD-v2 dataset. Our model can result in the correct prediction on semantic segmentation, depth estimation,
+surface normal prediction, and boundary detection tasks.
+by default.
+Visualization on Learned Query Activation Maps. In
+Fig. 6, we visualize the attention map for each query in each
+task. We randomly choose one query for visualization. As
+shown in that ﬁgure, after the cross-task query interaction, we
+found more structures and ﬁne-grained results for each task,
+proving the beneﬁts of our query-based cross-task attention
+design. The variations in query activation maps demonstrate
+the effectiveness of the proposed cross-task query attention
+module. In addition, the results show that a task-relevant
+query-based Transformer is beneﬁcial to multi-task learning
+of dense prediction tasks.
+Visualization Comparison with Previous Methods. We also
+present several visual comparisons with recent works onPASCAL-Context dataset in Fig. 5. Compared with recent
+work [7], [55], our method has better visual results for all
+ﬁve tasks. The advantage of our method is that the seman-
+tic segmentation and human parts segmentation tasks show
+more reliable segmentation. Fig. 5 shows some exemplars of
+prediction results and it suggests that our model makes effec-
+tive use of a query-based transformer. Our model generates
+dense predictions with better semantic segmentation details,
+as marked in the yellow square box. We can observe from
+Fig. 5 that our method’s predictions are more ﬁne-grained
+and have more local edges and textures especially on SemSeg
+and Human Parts segmentation tasks. In addition, we can
+see that our MQTransformer can successfully segment the
+details of a single person. Fig. 5 and Tab. III indicate thatJOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 11
+SemSeg Bound Normals Saliency Human Parts Input Image
+(a) Human and Animal
+(b) Human, Animal and Object
+(c) Human and Plant 
+Fig. 8. Qualitative results on PASCAL-Context dataset. We group the visualization results into three groups for comparison. (a) Human and
+animal; (b) Human, animal and object; (c) Human and plant. Our model is able to ﬁnd the correct image feature corresponding to different
+tasks and eventually get the correct prediction on semantic segmentation (SemSeg), human parts segmentation (Human Parts), saliency
+estimation (Saliency), surface normals prediction (Normals), and boundary detection (Bound) tasks.
+our MQTransformer could work ﬁnely.
+Visualization Results on NYUD-v2. For a more vivid under-
+standing of our model, Fig. 7 shows images of the qualitative
+results of our MQTransformer with a Swin-S backbone on the
+NYUD-v2 dataset. Our method also achieves strong visualiza-
+tion results.
+Visualization Results on PASCAL-Context. As shown in
+Fig. 8, we group the images into three groups for a stronger
+visual contrast. Fig. 8 (a) shows two sets of images of a woman
+holding a child and a man holding a dog. On the human
+parts segmentation task, our model segments the two people
+in the ﬁrst set of images, while the second set of images only
+segments the human part, ignoring the dog. Fig. 8 (b) also
+veriﬁes the accuracy of the human parts segmentation task. In
+the last row of images (see Fig. 8 (c)), it is worth noting thatthe third image is all black since this one is all plants with no
+human parts. Moreover, in other tasks, qualitative results also
+demonstrate good visual performance.
+Limitation and Future Work. We demonstrate the advan-
+tages of our proposed MQTransformer. However, one limita-
+tion of our method is that our task-relevant query features are
+randomly initialized. As shown in Tab. IV (c), we show the
+effect of the Nof the task-relevant query feature ( P2RNC)
+on the model. In the future, we will ﬁrst generate task-
+relevant query features using image information. Thus, more
+task-relevant and ﬁne details can be obtained. We will be
+exploring the task-relevant query features and the potential
+of the Transformer architecture in MTDP.
+Boarder Impact. Our method explores multi-task dense pre-
+diction with a novel multi-query transformer architecture. It isJOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 12
+a new encoder-decoder baseline for this task and may inspire
+the new design of the multi-task learning framework.
+V. C ONCLUSION
+In this paper, we propose a new vision transformer architec-
+ture for MTDP. We design novel multiple task-relevant queries
+to extract task-speciﬁc features from different tasks. Then we
+perform task association via cross-task query attention which
+avoids huge pixel-level computation and cost that are used in
+previous works. Then a shared encoder and decoder network
+is adopted to exchange information between queries and
+corresponding task-speciﬁc features. Extensive experiments
+show that our model can achieve signiﬁcant improvements
+on different metrics with various strong baselines. Moreover,
+we show the effectiveness of our method on two multi-task
+learning datasets, using CNN & Transformer backbones and
+efﬁcient architectures across multiple vision tasks. We hope
+our method can be a new simple yet effective transformer
+baseline for MTDP.
+DATA AVAILABILITY
+The datasets generated during and/or analysed during
+the current study are available in the NYUD-v2 and
+PASCAL-Context repositories, https://cs.nyu.edu/ silberman/
+datasets/nyu depth v2.html and https://www.cs.stanford.edu/
+roozbeh/pascal-context/
+REFERENCES
+[1] A. Prakash, K. Chitta, and A. Geiger, “Multi-modal fusion transformer
+for end-to-end autonomous driving,” in CVPR , 2021.
+[2] G. Ghiasi, B. Zoph, E. D. Cubuk, Q. V . Le, and T.-Y . Lin, “Multi-task
+self-training for learning general representations,” in ICCV , 2021.
+[3] J. N. Kundu, N. Lakkakula, and R. V . Babu, “Um-adapt: Unsupervised
+multi-task adaptation using adversarial cross-task distillation,” in ICCV ,
+2019.
+[4] D. Xu, W. Ouyang, X. Wang, and N. Sebe, “Pad-net: Multi-tasks guided
+prediction-and-distillation network for simultaneous depth estimation
+and scene parsing,” in CVPR , 2018.
+[5] S. Vandenhende, S. Georgoulis, and L. Van Gool, “Mti-net: Multi-scale
+task interaction networks for multi-task learning,” in ECCV , 2020.
+[6] J. Phillips, J. Martinez, I. A. B ˆarsan, S. Casas, A. Sadat, and R. Ur-
+tasun, “Deep multi-task learning for joint localization, perception, and
+prediction,” in CVPR , 2021.
+[7] D. Bruggemann, M. Kanakis, A. Obukhov, S. Georgoulis, and L. V .
+Gool., “Exploring relational context for multi-task dense prediction.”
+ICCV , 2021.
+[8] A. Dosovitskiy, L. Beyer, A. Kolesnikov, D. Weissenborn, X. Zhai,
+T. Unterthiner, M. Dehghani, M. Minderer, G. Heigold, S. Gelly,
+J. Uszkoreit, and N. Houlsby, “An image is worth 16x16 words:
+Transformers for image recognition at scale,” In: ICLR , 2021.
+[9] Y . Wang, Z. Xu, X. Wang, C. Shen, B. Cheng, H. Shen, and H. Xia,
+“End-to-end video instance segmentation with transformers,” CVPR ,
+2021.
+[10] Z. Liu, Y . Lin, Y . Cao, H. Hu, Y . Wei, Z. Zhang, S. Lin, and
+B. Guo, “Swin transformer: Hierarchical vision transformer using shifted
+windows,” ICCV , 2021.
+[11] S. Liu, E. Johns, and A. J. Davison, “End-to-end multi-task learning
+with attention,” in CVPR , 2019.
+[12] Z. Zhang, Z. Cui, C. Xu, Y . Yan, N. Sebe, and J. Yang, “Pattern-afﬁnitive
+propagation across depth, surface normal and semantic segmentation,”
+inCVPR , 2019.
+[13] A. Kendall, Y . Gal, and R. Cipolla, “Multi-task learning using uncer-
+tainty to weigh losses for scene geometry and semantics,” in CVPR ,
+2018.
+[14] W. Wang, E. Xie, X. Li, D.-P. Fan, K. Song, D. Liang, T. Lu, P. Luo, and
+L. Shao, “Pyramid vision transformer: A versatile backbone for dense
+prediction without convolutions,” ICCV , 2021.[15] X. Sun, R. Panda, R. Feris, and K. Saenko, “Adashare: Learning what
+to share for efﬁcient deep multi-task learning,” NeurIPS , 2020.
+[16] Y . Yang, S. You, H. Li, F. Wang, C. Qian, and Z. Lin, “Towards
+improving the consistency, efﬁciency, and ﬂexibility of differentiable
+neural architecture search,” in CVPR , 2021.
+[17] C. Shu, Y . Liu, J. Gao, Z. Yan, and C. Shen, “Channel-wise knowledge
+distillation for dense prediction,” ICCV , 2021.
+[18] N. Carion, F. Massa, G. Synnaeve, N. Usunier, A. Kirillov, and
+S. Zagoruyko, “End-to-end object detection with transformers,” in
+ECCV , 2020.
+[19] R. Ranftl, A. Bochkovskiy, and V . Koltun, “Vision transformers for dense
+prediction,” ICCV , 2021.
+[20] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez,
+L. Kaiser, and I. Polosukhin, “Attention is all you need,” NIPS , 2017.
+[21] K. Sun, B. Xiao, D. Liu, and J. Wang, “Deep high-resolution represen-
+tation learning for human pose estimation,” in CVPR , 2019.
+[22] Q. Zhang, Y . Xu, J. Zhang, and D. Tao, “Vitaev2: Vision transformer
+advanced by exploring inductive bias for image recognition and beyond,”
+arXiv preprint arXiv:2202.10108 , 2022.
+[23] A. Jalali, S. Sanghavi, C. Ruan, and P. Ravikumar, “A dirty model for
+multi-task learning,” NeurIPS , 2010.
+[24] Z. Ling, C. Zhen, X. Chunyan, Z. Zhenyu, W. Chaoqun, Z. Tong,
+and Y . Jian, “Pattern-structure diffusion for multi-task learning,” CVPR ,
+2020.
+[25] M. Kanakis, D. Bruggemann, S. Saha, S. Georgoulis, A. Obukhov, and
+L. Van Gool, “Reparameterizing convolutions for incremental multi-task
+learning without task interference,” in ECCV , 2020.
+[26] I. Misra, A. Shrivastava, A. Gupta, and M. Hebert, “Cross-stitch net-
+works for multi-task learning,” in CVPR , 2016.
+[27] G. Strezoski, N. v. Noord, and M. Worring, “Many task learning with
+task routing,” ICCV , 2019.
+[28] Z. Zhenyu, C. Zhen, X. Chunyan, J. Zequn, L. Xiang, and Y . Jian, “Joint
+task-recursive learning for semantic segmentation and depth estimation,”
+ECCV , 2018.
+[29] M.-I. Georgescu, A. Barbalau, R. T. Ionescu, F. S. Khan, M. Popescu,
+and M. Shah, “Anomaly detection in video via self-supervised and multi-
+task learning,” CVPR , 2021.
+[30] K. Tateno, N. Navab, and F. Tombari, “Distortion-aware convolutional
+ﬁlters for dense prediction in panoramic images,” ECCV , 2018.
+[31] N. Takahashi and Y . Mitsufuji, “Densely connected multi-dilated con-
+volutional networks for dense prediction tasks,” in CVPR , 2021.
+[32] S. Huang, Z. Lu, R. Cheng, and C. He, “Fapn: Feature-aligned pyramid
+network for dense image prediction,” in ICCV , 2021.
+[33] Y . Gao, J. Ma, M. Zhao, W. Liu, and A. L. Yuille, “Nddr-cnn: Layerwise
+feature fusing in multi-task cnns by neural discriminative dimensionality
+reduction,” in CVPR , 2019.
+[34] Y . Yang, H. Li, X. Li, Q. Zhao, J. Wu, and Z. Lin, “Sognet: Scene
+overlap graph network for panoptic segmentation,” in AAAI , 2020.
+[35] X. Li, A. You, Z. Zhu, H. Zhao, M. Yang, K. Yang, S. Tan, and Y . Tong,
+“Semantic ﬂow for fast and accurate scene parsing,” in ECCV , 2020.
+[36] T.-Y . Lin, P. Doll ´ar, R. Girshick, K. He, B. Hariharan, and S. Belongie,
+“Feature pyramid networks for object detection,” in CVPR , 2017.
+[37] K. Li, S. Wang, X. Zhang, Y . Xu, W. Xu, and Z. Tu, “Pose recognition
+with cascade transformers,” CVPR , 2021.
+[38] K. Bumsoo, L. Junhyun, K. Jaewoo, K. Eun-Sol, and K. H. J.,
+“Hotr: End-to-end human-object interaction detection with transform-
+ers,” CVPR , 2021.
+[39] L. Ding, D. Lin, S. Lin, J. Zhang, X. Cui, Y . Wang, H. Tang, and L. Bruz-
+zone, “Looking outside the window: Wide-context transformer for the
+semantic segmentation of high-resolution remote sensing images,” arXiv ,
+2021.
+[40] C. Xin, Y . Bin, Z. Jiawen, W. Dong, Y . Xiaoyun, and H. Lu, “Trans-
+former tracking,” CVPR , 2021.
+[41] F. Hehe, Y . Yi, and K. Mohan, “Point 4d transformer networks for spatio-
+temporal modeling in point cloud videos,” CVPR , 2021.
+[42] L. Jack, W. Tianlu, O. Vicente, and Q. Yanjun, “General multi-label
+image classiﬁcation with transformers,” CVPR , 2021.
+[43] M.-H. Guo, T.-X. Xu, J.-J. Liu, Z.-N. Liu, P.-T. Jiang, T.-J. Mu, S.-H.
+Zhang, R. R. Martin, M.-M. Cheng, and S.-M. Hu, “Attention mech-
+anisms in computer vision: A survey,” Computational Visual Media ,
+vol. 8, no. 3, pp. 331–368, 2022.
+[44] X. Zhu, W. Su, L. Lu, B. Li, X. Wang, and J. Dai, “Deformable DETR:
+deformable transformers for end-to-end object detection,” ICLR , 2021.
+[45] L. Yuan, Y . Chen, T. Wang, W. Yu, Y . Shi, Z. Jiang, F. E. Tay, J. Feng,
+and S. Yan, “Tokens-to-token vit: Training vision transformers from
+scratch on imagenet,” ICCV , 2021.JOURNAL OF L ATEX CLASS FILES, VOL. 14, NO. XX, XX 2023 13
+[46] Y . Xu, Q. Zhang, J. Zhang, and D. Tao, “Vitae: Vision transformer
+advanced by exploring intrinsic inductive bias,” NeurIPS , vol. 34, pp.
+28 522–28 535, 2021.
+[47] T. Hugo, C. Matthieu, D. Matthijs, M. Francisco, S. Alexandre, and
+H. J ´egou, “Training data-efﬁcient image transformers & distillation
+through attention,” ICML , 2021.
+[48] H. Yuan, X. Li, Y . Yang, G. Cheng, J. Zhang, Y . Tong, L. Zhang,
+and D. Tao, “Polyphonicformer: Uniﬁed query learning for depth-aware
+video panoptic segmentation,” ECCV , 2022.
+[49] X. Li, W. Zhang, J. Pang, K. Chen, G. Cheng, Y . Tong, and C. C.
+Loy, “Video k-net: A simple, strong, and uniﬁed baseline for video
+segmentation,” in CVPR , 2022.
+[50] S. Xu, X. Li, J. Wang, G. Cheng, Y . Tong, and D. Tao, “Fashionformer:
+A simple, effective and uniﬁed baseline for human fashion segmentation
+and recognition,” in arxiv , 2022.
+[51] X. Li, S. Xu, Y . Y . Cheng, Y . Tong, D. Tao et al. , “Panoptic-partformer:
+Learning a uniﬁed model for panoptic part segmentation,” arXiv preprint
+arXiv:2204.04655 , 2022.
+[52] Q. Zhang, Y . Xu, J. Zhang, and D. Tao, “Vsa: Learning varied-size win-
+dow attention in vision transformers,” arXiv preprint arXiv:2204.08446 ,
+2022.
+[53] R. Hu and A. Singh, “Unit: Multimodal multitask learning with a uniﬁed
+transformer,” in ICCV , 2021.
+[54] X. Xu, H. Zhao, V . Vineet, S.-N. Lim, and A. Torralba, “Mtformer:
+Multi-task learning via transformer and cross-task reasoning,” in ECCV ,
+2022.
+[55] H. Ye and D. Xu, “Inverted pyramid multi-task transformer for dense
+scene understanding,” ECCV , 2022.
+[56] N. Silberman, D. Hoiem, P. Kohli, and R. Fergus, “Indoor segmentation
+and support inference from rgbd images,” in ECCV , 2012.
+[57] X. Chen, R. Mottaghi, X. Liu, S. Fidler, R. Urtasun, and A. Yuille,
+“Detect what you can: Detecting and representing objects using holistic
+models and body parts,” in CVPR , 2014.
+[58] L.-C. Chen, Y . Zhu, G. Papandreou, F. Schroff, and H. Adam, “Encoder-
+decoder with atrous separable convolution for semantic image segmen-
+tation,” in ECCV , 2018.
+[59] D. Bruggemann, M. Kanakis, S. Georgoulis, and L. Van Gool, “Auto-
+mated search for resource-efﬁcient branched multi-task networks,” arXiv
+preprint arXiv:2008.10292 , 2020.
+[60] D. S. Raychaudhuri, Y . Suh, S. Schulter, X. Yu, M. Faraki, A. K.
+Roy-Chowdhury, and M. Chandraker, “Controllable dynamic multi-task
+architectures,” in CVPR , 2022, pp. 10 955–10 964.
+[61] R. Ranftl, K. Lasinger, D. Hafner, K. Schindler, and V . Koltun, “Towards
+robust monocular depth estimation: Mixing datasets for zero-shot cross-
+dataset transfer,” IEEE TPAMI , 2020.
