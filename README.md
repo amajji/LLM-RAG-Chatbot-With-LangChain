@@ -6,20 +6,18 @@ Data scientist | [Anass MAJJI](https://www.linkedin.com/in/anass-majji-729773157
 
 ## :monocle_face: Description
 
+- In this project, we deploy an **LLM RAG Chatbot** with **Langchain** on a **Streamlit** app. </br>
+The development of this LLM model aims at extracting relevent informations from external documents. Traditionally, the LLM has only relied on prompt and
+the training data on which the model was trained. However, this approach posed limitations in terms of knowledge especially when dealing with
+large datasets that exceed token length constraints. To address this challenge, RAG (Retrieval Augmented Generation) intervenes by enriching the LLM with new and external data sources.
 
+
+ 
 <p align="center">
  <img src="images/RAG_workflow.png" width="50%" />
 </p>
 
-- In this project, we deploy an **LLM RAG Chatbot** with **Langchain** on a **Streamlit** app. </br>
-The development of this LLM model aims at extracting relevent informations from external documents. Traditionally, the LLM has only relied on prompt and
-the training data on which the model was trained. However, this approach posed limitations in terms of knowledge especially when dealing with
-large datasets that exceed token length constraints. To address this challenge, RAG
-(Retrieval Augmented Generation) intervenes by enriching the LLM with new and external data sources.
 
- 
-
- LLM-RAG-Chatbot-With-LangChain
 
 ## :rocket: Repository Structure
 
