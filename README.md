@@ -13,11 +13,11 @@ The LLM model aims at extracting relevent informations from external documents. 
 
 Before making a demo of the streamlit web application, let's walk through the details of the RAG approach to understand how it works. The **retriever** acts like an internal search engine : given a user query, it returns a few relevent elements from the external data sources. Here are the main steps of the RAG system : 
 
-	- 1 - Split each document of our knowledge into chunks and get their embeddings: we should keep in mind that when embbeding documents, we will use a model that accepts a certain maximum sequence length max_seq_length. 
+- 1 - Split each document of our knowledge into chunks and get their embeddings: we should keep in mind that when embbeding documents, we will use a model that accepts a certain maximum sequence length max_seq_length. 
 
-	- 2 - Once all the chunks are embedded, we store them in a vector database. When the user types a query, it gets embedded by the same model previously used, then a similarity search returns the top_k closest chunks from the vector database. To do so, we need two elements : 1) a metric to mesure the distance between emdeddings (Euclidean distance, Cosinus similarity, Dot product) and 2) a search algorithm to find the closest elements (Facebook's FAISS). Our particular model works well with cosinus similarity.
+- 2 - Once all the chunks are embedded, we store them in a vector database. When the user types a query, it gets embedded by the same model previously used, then a similarity search returns the top_k closest chunks from the vector database. To do so, we need two elements : 1) a metric to mesure the distance between emdeddings (Euclidean distance, Cosinus similarity, Dot product) and 2) a search algorithm to find the closest elements (Facebook's FAISS). Our particular model works well with cosinus similarity.
 
-	- 3 - Finally, the content of the retrieved documents is aggregated together into the "context", which is also aggregated with the query into the prompt. It's then fed to the LLM to generate answers.
+- 3 - Finally, the content of the retrieved documents is aggregated together into the "context", which is also aggregated with the query into the prompt. It's then fed to the LLM to generate answers.
 
 - Below a perfect illustration of the RAG steps : 
 
