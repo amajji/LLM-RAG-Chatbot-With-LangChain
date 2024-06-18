@@ -17,16 +17,11 @@ WORKDIR ./app
  
 
 # upgrade all the packages that have updates available and
-# install python3.10
-
-
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     software-properties-common \
-    git \
     && rm -rf /var/lib/apt/lists/*
-
 
 
 
