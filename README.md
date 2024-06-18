@@ -1,4 +1,4 @@
-# LLM RAG Chatbot (only CPU)
+# LLM RAG Chatbot (with only CPU)
 Data scientist | [Anass MAJJI](https://www.linkedin.com/in/anass-majji-729773157/)
 
 ***
