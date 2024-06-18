@@ -60,15 +60,6 @@ STREAMLIT_STATIC_PATH = "./AI_Hackathon_Dataset/pdf"
 
 
 
-def sidebar_caption():
-    """This is a demo of some shared sidebar elements.
-    Reused this function to make sure we have the same sidebar elements if needed.
-    """
-
-    # st.sidebar.header("Yay, this is a sidebar")
-    # st.sidebar.markdown("")
-
-
 
 #########################################################################################
 #                                Functions                                              #
