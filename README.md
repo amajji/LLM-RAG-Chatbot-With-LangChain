@@ -8,7 +8,7 @@ Data scientist | [Anass MAJJI](https://www.linkedin.com/in/anass-majji-729773157
 
 
 <p align="center">
- <img src="images/RAG_workflow.png" width="350" />
+ <img src="images/RAG_workflow.png" width="50%" />
 </p>
 
 - In this project, we deploy an **LLM RAG Chatbot** with **Langchain** on a **Streamlit** app. </br>
