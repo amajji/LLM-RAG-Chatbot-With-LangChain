@@ -28,7 +28,7 @@ Before making a demo of the streamlit web application, let's walk through the de
 
 
 
-In order to achieve a good accuracy with the LLMs, we need to better understand and choose each hyperparameter. Before deeping dive into the details, let's remind the LLM's decoding process. As we know, LLMs rely on transformers, each one is composed with two main blocs : **encoder** which converts the input tokens into embeddings i.e numerical values and **decoder** which tries to generate tokens from embeddings (the opposit of the encoder). There are two main types of decoding : **greedy** and **sampling**. With greedy decoding, the model simply chooses the token with the highest probability at each step during inference.
+In order to reach a good accuracy with the LLMs, we need to better understand and choose each hyperparameter. Before deeping dive into the details, let's remind the LLM's decoding process. As we know, LLMs rely on transformers, each one is composed with two main blocs : **encoder** which converts the input tokens into embeddings i.e numerical values and **decoder** which tries to generate tokens from embeddings (the opposit of the encoder). There are two main types of decoding : **greedy** and **sampling**. With greedy decoding, the model simply chooses the token with the highest probability at each step during inference.
 
  
 With sampling decoding, in contrast, the model select a subset of potential output tokens and select randomly one of them to add to the output text. This creates more variability and helps the LLM to be more creative. However, opting for sampling decoder increases the risk of incorrect responses.
