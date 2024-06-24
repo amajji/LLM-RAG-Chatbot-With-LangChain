@@ -39,11 +39,14 @@ When opting for sampling decoding, we have two additional hyperparameters which 
 
 - **top_k** : The top_k hyperparameter is an integer that ranges from **1** to **100**. It represents the k tokens with the highest probabilities. To more understand the idea behind, let's take an example :  we have this sentence "I went to meet a friend" and we want to predict the next token, we have 3 possiblities 1) in the center of the city 2) to eat together 3) on the other side of town. Now, let assume that "in", "to" and "on" have respectively the following probabilities [0.23, 0.12, 0.30]. With top_k = 2, we are going to select only two tokens with the highest probabilities:  "in" and "on" in our case. Then the model chooses randomly one of them.
 
-- **top_p*** : is a decimal feature that ranges from **0.0** to **1.0**. The model try to choose a subset of tokens with their cumulative probabilities equals to top_p value. Considering the above example, with a top_p = 0.55, the only tokens with their cumulative probabilities inferior to 0.55 are "in" and "on".
+- **top_p** : is a decimal feature that ranges from **0.0** to **1.0**. The model try to choose a subset of tokens with their cumulative probabilities equals to top_p value. Considering the above example, with a top_p = 0.55, the only tokens with their cumulative probabilities inferior to 0.55 are "in" and "on".
 
  
 - **temperature**: performs a similar function as the above top_k and top_p hyperparameters. It ranges from **0** to **2** (maximum of creativity). The idea behind is to change the probability distribution of the output tokens. With a lower temperature value, the model amplifies the probabilities, means tokens with higher probabilities become even more likely to be output and vice-versa. The lower values are used when we want to generate predictable responses.
 In contrast, higher values cause convergence of the probabilities : they become close to each other. Using them push the LLM to be more creative.
+
+
+Another paramater we should take into consideration is the memory needed to run the LLM: for a model with N parameter and a full precision (fp32) the memory needed is N x 4Bytes. However, when we use quantization, we divide by (4 Bytes/ new precision). With fp16, the new memory is divided by 4 Bytes/ 2 Bytes. 
 
 
 ## :rocket: Repository Structure
@@ -60,7 +63,7 @@ The repository contains the following files & directories:
 
 ## :chart_with_upwards_trend: Demontration
 
-In this section, we are going to make a demonstration of the streamlit webapp. The user can ask any question and the chatbot will answer based on the elements   
+In this section, we are going to make a demonstration of the streamlit webapp. The user can ask any question and the chatbot will answer. 
 
 To launch the deployment of the streamlit app with docker, type the following commands :
 
