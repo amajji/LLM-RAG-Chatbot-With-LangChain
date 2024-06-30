@@ -91,7 +91,7 @@ def create_vector_db(data_path):
     return db
 
 
-@st.cache_resource
+
 def load_llm(temperature, max_new_tokens, top_p, top_k):
     """Load the LLM model"""
 
@@ -110,7 +110,7 @@ def load_llm(temperature, max_new_tokens, top_p, top_k):
 
 
 
-@st.cache_resource
+
 def q_a_llm_model(vector_db, llm_model):
     """
     This function loads the LLM model, gets the relevent
@@ -129,7 +129,7 @@ def q_a_llm_model(vector_db, llm_model):
 
     # Create a retriever object from the 'db' with a search configuration where
     # it retrieves up to top_k relevant splits/documents.
-    retriever = vector_db.as_retriever(search_kwargs={"k": top_k})
+    retriever = vector_db.as_retriever(search_kwargs={"k": 4})
 
     # Create a question-answering instance (qa) using the RetrievalQA class.
     # It's configured with a language model (llm), a chain type "refine,"
@@ -173,7 +173,7 @@ def page_1():
     )
 
     # Text generation params
-    st.subheader("Text generation parameters")
+    st.sidebar.subheader("Text generation parameters")
     temperature = st.sidebar.slider(
         "Temperature", min_value=0.1, max_value=1.0, value=0.1, step=0.01
     )
