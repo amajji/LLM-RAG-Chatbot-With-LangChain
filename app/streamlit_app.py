@@ -53,8 +53,8 @@ from langchain_community.vectorstores.utils import DistanceStrategy
 #########################################################################################
 
 st.set_page_config(layout="wide")
-STREAMLIT_STATIC_PATH = str(pathlib.Path(st.__path__[0]) / "AI_Hackathon_Dataset/pdf")
-STREAMLIT_STATIC_PATH = "./AI_Hackathon_Dataset/pdf"
+#STREAMLIT_STATIC_PATH = str(pathlib.Path(st.__path__[0]) / "AI_Hackathon_Dataset/pdf")
+STREAMLIT_STATIC_PATH = "../dataset/pdf"
 
 
 #########################################################################################
@@ -62,7 +62,7 @@ STREAMLIT_STATIC_PATH = "./AI_Hackathon_Dataset/pdf"
 #########################################################################################
 
 
-# @st.cache
+@st.cache_data
 def create_vector_db(data_path):
 
     """function to create vector db provided the pdf files"""
@@ -74,7 +74,7 @@ def create_vector_db(data_path):
     documents = loader.load()
 
     # use recursive splitter to split each document into chunks
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=30)
     texts = text_splitter.split_documents(documents)
 
     # generate embeddings for each chunk
@@ -91,7 +91,7 @@ def create_vector_db(data_path):
     return db
 
 
-# @st.cache
+@st.cache_resource
 def load_llm(temperature, max_new_tokens, top_p, top_k):
     """Load the LLM model"""
 
@@ -109,15 +109,13 @@ def load_llm(temperature, max_new_tokens, top_p, top_k):
     return llm
 
 
-@st.cache_resource()
-def q_a_llm_model(temperature, max_new_tokens, top_p, top_k):
+
+@st.cache_resource
+def q_a_llm_model(vector_db, llm_model):
     """
     This function loads the LLM model, gets the relevent
     docs for a given query and provides an answer
     """
-
-    # create the vector database
-    vector_db = create_vector_db(STREAMLIT_STATIC_PATH)
 
     # get the top_k relevent documents
     # print(f"\nStarting retrieval for {user_query=}...")
@@ -128,9 +126,6 @@ def q_a_llm_model(temperature, max_new_tokens, top_p, top_k):
     # print(retrieved_docs[0].page_content)
     # print("==================================Metadata==================================")
     # print(retrieved_docs[0].metadata)
-
-    # load the model
-    llm_model = load_llm(temperature, max_new_tokens, top_p, top_k)
 
     # Create a retriever object from the 'db' with a search configuration where
     # it retrieves up to top_k relevant splits/documents.
@@ -164,7 +159,7 @@ def page_1():
     st.markdown(
         """
         This interactive dashboard is designed to extract any information from external documents. 
-        The LLM used is LLaMA2-7B with LangChain for RAG. The user has the possibility to ask questions and the LLM provides 
+        The LLM used is LLama 2-7B with LangChain for RAG. The user has the possibility to ask questions and the LLM provides 
         an appropriate answer from the available documents.
         To speed the inference time, we've used the quantized version of the model with **GGML** quantization approach, 
         it can run on only **CPU** processors.
@@ -185,10 +180,16 @@ def page_1():
     top_p = st.sidebar.slider(
         "Top_p", min_value=0.01, max_value=1.0, value=0.9, step=0.01
     )
-    top_k = st.sidebar.slider("Top_p", min_value=0, max_value=100, value=20, step=10)
+    top_k = st.sidebar.slider("Top_k", min_value=0, max_value=100, value=20, step=10)
     max_length = st.sidebar.slider(
         "Max_length", min_value=64, max_value=4096, value=512, step=8
     )
+
+    # create the vector database
+    vector_db = create_vector_db(STREAMLIT_STATIC_PATH)
+
+    # load the model
+    llm_model = load_llm(temperature, max_new_tokens, top_p, top_k)
 
     if "messages" not in st.session_state:
         st.session_state["messages"] = [
@@ -204,10 +205,15 @@ def page_1():
         st.chat_message("user").write(prompt)
 
         # Create a question-answering instance with the provided params
-        q_a = q_a_llm_model(temperature, max_length, top_p, top_k)
+        q_a = q_a_llm_model(vector_db, llm_model)
+
+        # chat history 
+        #chat_history = []
+
 
         # get the result
-        result = q_a.run({"query": prompt})
+        #result = q_a.run({"query": prompt, "chat_history": chat_history})
+        result = q_a.run({"query": prompt })
         # print("------------ : ", result)
 
         st.session_state.messages.append(
@@ -228,7 +234,7 @@ def main():
     # Select pages
     # Use dropdown if you prefer
     selection = st.sidebar.radio("Select your page : ", list(PAGES.keys()))
-    sidebar_caption()
+    #st.sidebar_caption()
 
     PAGES[selection]()
 
@@ -236,7 +242,7 @@ def main():
     st.sidebar.info(
         """
     Web App URL: <https://amajji-streamlit-dash-streamlit-app-8i3jn9.streamlit.app/>
-    GitHub repository: <https://github.com/giswqs/streamlit-geospatial>
+    GitHub repository: <https://github.com/amajji/LLM-RAG-Chatbot-With-LangChain>
     """
     )
 
