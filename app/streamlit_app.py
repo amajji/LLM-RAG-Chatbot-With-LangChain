@@ -189,7 +189,7 @@ def page_1():
     vector_db = create_vector_db(STREAMLIT_STATIC_PATH)
 
     # load the model
-    llm_model = load_llm(temperature, max_new_tokens, top_p, top_k)
+    llm_model = load_llm(temperature, max_length, top_p, top_k)
 
     if "messages" not in st.session_state:
         st.session_state["messages"] = [
