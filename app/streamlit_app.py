@@ -1,7 +1,7 @@
 ############################################################################################
 
 #                                  Author: Anass MAJJI                                     #
-
+ 
 #                               File Name: streamlit_app.py                                #
 
 #                           Creation Date: May 06, 2024                                    #
@@ -43,7 +43,7 @@ from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
 
 # from langchain.llms import CTransformers
 from langchain_community.llms import CTransformers
-import chainlit as cl
+#import chainlit as cl
 from langchain.memory import ConversationBufferMemory
 from langchain_community.vectorstores.utils import DistanceStrategy
 
@@ -54,7 +54,7 @@ from langchain_community.vectorstores.utils import DistanceStrategy
 
 st.set_page_config(layout="wide")
 #STREAMLIT_STATIC_PATH = str(pathlib.Path(st.__path__[0]) / "AI_Hackathon_Dataset/pdf")
-STREAMLIT_STATIC_PATH = "../dataset/pdf"
+STREAMLIT_STATIC_PATH = "/app/dataset/pdf"
 
 
 #########################################################################################
@@ -62,31 +62,46 @@ STREAMLIT_STATIC_PATH = "../dataset/pdf"
 #########################################################################################
 
 
-@st.cache_data
+
+#st.cache_data
 def create_vector_db(data_path):
 
     """function to create vector db provided the pdf files"""
-
+    print(" -- loader ... " )
     # define the docs's path
     loader = DirectoryLoader(data_path, glob="*.pdf", loader_cls=PyPDFLoader)
+    print(" -- loader OK " )
 
+    print(" -- documents ... " )
     # load documents
     documents = loader.load()
+    print(" -- documents OK " )
 
     # use recursive splitter to split each document into chunks
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=30)
+    print(" -- text_splitter ... " )
+#    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=30)
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=30)
+
+    print(" -- text_splitter OK " )
+
+    print(" -- texts ... " )
     texts = text_splitter.split_documents(documents)
+    print(" -- texts OK " )   
 
     # generate embeddings for each chunk
+    print(" -- embeddings ... " )
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2",
         multi_process=True,
         encode_kwargs={"normalize_embeddings": True},
         model_kwargs={"device": "cpu"},
     )
+    print(" -- embeddings OK " )
 
     # create the vector database
+    print(" -- FAISS ... " )
     db = FAISS.from_documents(texts, embeddings)
+    print(" -- FAISS OK " )
 
     return db
 
@@ -161,8 +176,8 @@ def page_1():
         This interactive dashboard is designed to extract any information from external documents. 
         The LLM used is LLama 2-7B with LangChain for RAG. The user has the possibility to ask questions and the LLM provides 
         an appropriate answer from the available documents.
-        To speed the inference time, we've used the quantized version of the model with **GGML** quantization approach, 
-        it can run on only **CPU** processors.
+        To speed the inference time, we've used the quantized version of the model with **GGML** quantization approach.  
+        The web application can be used with only **CPU** processors.
         """
     )
 

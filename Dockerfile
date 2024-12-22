@@ -31,7 +31,7 @@ RUN pip3 install --upgrade pip
  
 
 # copy all elements
-COPY . .
+COPY . /app
 
  
 # install all packages in requierements.txt
@@ -41,7 +41,8 @@ RUN pip3 install -r requirements.txt
 # listen to port 8501
 EXPOSE 8501
 
- 
+# Set environment variable for Streamlit to run the app
+ENV STREAMLIT_STATIC_PATH = /dataset/pdf
 
 # check if the container still working
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health
