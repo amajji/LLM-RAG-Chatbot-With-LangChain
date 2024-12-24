@@ -119,22 +119,13 @@ def create_vector_db(data_path):
         model_kwargs={"device": device},
     )
     print(" -- embeddings OK " )
-    return texts, embeddings
 
-
-
-
-
-def get_relevent_chunks(data_path):
-    texts, embeddings = create_vector_db(data_path)
-
-    # create the vector database
+    
     print(" -- FAISS ... " )
+    # indexing database
     db = FAISS.from_documents(texts, embeddings)
     print(" -- FAISS OK " )
     return db
-
-
 
 
 
@@ -156,28 +147,21 @@ def load_llm(temperature, max_new_tokens, top_p, top_k):
     return llm
 
 
+st.cache_resource
+def model_retriever(vector_db):
+    # Create a retriever object from the 'db' with a search configuration where
+    # it retrieves up to top_k relevant splits/documents.
+    retriever = vector_db.as_retriever(search_kwargs={"k": 4})    
+
+    return retriever
 
 
 st.cache_data
-def q_a_llm_model(vector_db, llm_model):
+def q_a_llm_model(retriever, llm_model):
     """
     This function loads the LLM model, gets the relevent
     docs for a given query and provides an answer
     """
-
-    # get the top_k relevent documents
-    # print(f"\nStarting retrieval for {user_query=}...")
-    # retrieved_docs = vector_db.similarity_search(query=user_query, k=5)
-    # print(
-    #    "\n==================================Top document=================================="
-    # )
-    # print(retrieved_docs[0].page_content)
-    # print("==================================Metadata==================================")
-    # print(retrieved_docs[0].metadata)
-
-    # Create a retriever object from the 'db' with a search configuration where
-    # it retrieves up to top_k relevant splits/documents.
-    retriever = vector_db.as_retriever(search_kwargs={"k": 4})
 
     # Create a question-answering instance (qa) using the RetrievalQA class.
     # It's configured with a language model (llm), a chain type "refine,"
@@ -190,6 +174,8 @@ def q_a_llm_model(vector_db, llm_model):
     )
 
     return q_a
+
+
 
 
 #########################################################################################
@@ -240,7 +226,7 @@ def page_1():
     start_time = time.time()
 
     # create the vector database
-    vector_db = get_relevent_chunks(STREAMLIT_STATIC_PATH)
+    vector_db = create_vector_db(STREAMLIT_STATIC_PATH)
 
     # end time
     end_time = time.time()
@@ -275,8 +261,8 @@ def page_1():
 
 
 
-
-
+    # model retriever
+    retriever = model_retriever(vector_db)
 
 
 
@@ -294,7 +280,7 @@ def page_1():
         st.chat_message("user").write(prompt)
 
         # Create a question-answering instance with the provided params
-        q_a = q_a_llm_model(vector_db, llm_model)
+        q_a = q_a_llm_model(retriever, llm_model)
 
         # chat history 
         #chat_history = []
