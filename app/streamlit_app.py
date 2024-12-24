@@ -24,10 +24,9 @@
 
 # Import Python Libraries
 import streamlit as st
-import seaborn as sns
-import pathlib
-import folium
-import os
+import torch
+import time
+import psutil
 
 # from langchain.vectorstores import FAISS
 from langchain_community.vectorstores import FAISS
@@ -54,7 +53,8 @@ from langchain_community.vectorstores.utils import DistanceStrategy
 
 st.set_page_config(layout="wide")
 #STREAMLIT_STATIC_PATH = str(pathlib.Path(st.__path__[0]) / "AI_Hackathon_Dataset/pdf")
-STREAMLIT_STATIC_PATH = "/app/dataset/pdf"
+#STREAMLIT_STATIC_PATH = "/app/dataset/pdf"
+STREAMLIT_STATIC_PATH = "./dataset/pdf"
 
 
 #########################################################################################
@@ -62,8 +62,27 @@ STREAMLIT_STATIC_PATH = "/app/dataset/pdf"
 #########################################################################################
 
 
+# Function to track and print CPU and GPU memory usage
+def get_memory_usage():
+    # Get CPU memory usage
+    memory = psutil.virtual_memory()
+    cpu_memory = memory.percent  # Memory usage percentage of the system
 
-#st.cache_data
+    # Get GPU memory usage
+    if torch.cuda.is_available():
+        gpu_memory_allocated = torch.cuda.memory_allocated() / (1024 ** 2)  # in MB
+        gpu_memory_reserved = torch.cuda.memory_reserved() / (1024 ** 2)  # in MB
+        gpu_memory = {
+            "allocated_memory": gpu_memory_allocated,
+            "reserved_memory": gpu_memory_reserved,
+        }
+    else:
+        gpu_memory = None
+    
+    return cpu_memory, gpu_memory
+
+
+st.cache_resource
 def create_vector_db(data_path):
 
     """function to create vector db provided the pdf files"""
@@ -88,25 +107,38 @@ def create_vector_db(data_path):
     texts = text_splitter.split_documents(documents)
     print(" -- texts OK " )   
 
+    # Initialize embeddings model with GPU support
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
     # generate embeddings for each chunk
     print(" -- embeddings ... " )
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2",
         multi_process=True,
         encode_kwargs={"normalize_embeddings": True},
-        model_kwargs={"device": "cpu"},
+        model_kwargs={"device": device},
     )
     print(" -- embeddings OK " )
+    return texts, embeddings
+
+
+
+
+
+def get_relevent_chunks(data_path):
+    texts, embeddings = create_vector_db(data_path)
 
     # create the vector database
     print(" -- FAISS ... " )
     db = FAISS.from_documents(texts, embeddings)
     print(" -- FAISS OK " )
-
     return db
 
 
 
+
+
+st.cache_resource
 def load_llm(temperature, max_new_tokens, top_p, top_k):
     """Load the LLM model"""
 
@@ -126,6 +158,7 @@ def load_llm(temperature, max_new_tokens, top_p, top_k):
 
 
 
+st.cache_data
 def q_a_llm_model(vector_db, llm_model):
     """
     This function loads the LLM model, gets the relevent
@@ -200,11 +233,52 @@ def page_1():
         "Max_length", min_value=64, max_value=4096, value=512, step=8
     )
 
+
+
+    # Check memory usage before the forward pass
+    print("Creation of the vector database ... ")
+    start_time = time.time()
+
     # create the vector database
-    vector_db = create_vector_db(STREAMLIT_STATIC_PATH)
+    vector_db = get_relevent_chunks(STREAMLIT_STATIC_PATH)
+
+    # end time
+    end_time = time.time()
+    print(f" Creation of the vector database in {end_time - start_time: .2f} seconds ")
+
+    cpu_memory, gpu_memory = get_memory_usage()
+    print(f"CPU Memory Usage: {cpu_memory}%")
+
+    if gpu_memory:
+        print(f"GPU Memory Allocated: {gpu_memory['allocated_memory']} MB")
+        print(f"GPU Memory Reserved: {gpu_memory['reserved_memory']} MB")
+
+
+
+
+    print(" Model loading ... ")
+    start_time = time.time()
 
     # load the model
     llm_model = load_llm(temperature, max_length, top_p, top_k)
+
+    # end time
+    end_time = time.time()
+    print(f" Model loading in {end_time - start_time: .2f} seconds ")
+
+    cpu_memory, gpu_memory = get_memory_usage()
+    print(f"CPU Memory Usage: {cpu_memory}%")
+
+    if gpu_memory:
+        print(f"GPU Memory Allocated: {gpu_memory['allocated_memory']} MB")
+        print(f"GPU Memory Reserved: {gpu_memory['reserved_memory']} MB")
+
+
+
+
+
+
+
 
     if "messages" not in st.session_state:
         st.session_state["messages"] = [
