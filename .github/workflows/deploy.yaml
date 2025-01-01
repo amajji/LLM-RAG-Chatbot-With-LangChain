@@ -1,0 +1,34 @@
+name: Build and Deploy Docker Image to GitHub Container Registry
+
+on:
+  push:
+    branches:
+      - main  # Trigger the workflow on push to the 'main' branch (or replace with your branch)
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Use the latest Ubuntu runner
+
+    steps:
+    # Step 1: Checkout the code from the repository
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    # Step 2: Log in to GitHub Container Registry using the GitHub token (stored as a secret)
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io  # GitHub Container Registry
+        username: ${{ github.actor }}  # GitHub username
+        password: ${{ secrets.GHCR_TOKEN }}  # Use the GitHub token stored as a secret
+
+    # Step 3: Build the Docker image
+    - name: Build Docker image
+      run: |
+        docker build -t ghcr.io/${{ github.repository }}/llama_rag:latest .  # Tag the image with the GitHub Container Registry URL
+
+    # Step 4: Push the Docker image to GitHub Container Registry
+    - name: Push Docker image
+      run: |
+        docker push ghcr.io/${{ github.repository }}/llama_rag:latest  # Push the image to GitHub Container Registry
+
