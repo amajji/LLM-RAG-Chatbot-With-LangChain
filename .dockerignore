@@ -1,1 +1,9 @@
+# Ignore Git directory
+.git/
+
+# Ignore virtual environment
+llamavenv/
+llmavenv/
+
 .chainlit
+

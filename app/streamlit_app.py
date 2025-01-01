@@ -27,25 +27,14 @@ import streamlit as st
 import torch
 import time
 import psutil
-
-# from langchain.vectorstores import FAISS
+from memory_profiler import profile
 from langchain_community.vectorstores import FAISS
-
-# from langchain.embeddings import HuggingFaceEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
-
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import ConversationalRetrievalChain, RetrievalQA
-
-# from langchain.document_loaders import PyPDFLoader, DirectoryLoader
 from langchain_community.document_loaders import PyPDFLoader, DirectoryLoader
-
-# from langchain.llms import CTransformers
 from langchain_community.llms import CTransformers
-#import chainlit as cl
 from langchain.memory import ConversationBufferMemory
-from langchain_community.vectorstores.utils import DistanceStrategy
-
 
 #########################################################################################
 #                                Variables                                              #
@@ -61,9 +50,13 @@ STREAMLIT_STATIC_PATH = "./dataset/pdf"
 #                                Functions                                              #
 #########################################################################################
 
+#st.cache_resource.clear()
 
-# Function to track and print CPU and GPU memory usage
 def get_memory_usage():
+    """
+    Function to track and print CPU and GPU memory usage
+    """
+
     # Get CPU memory usage
     memory = psutil.virtual_memory()
     cpu_memory = memory.percent  # Memory usage percentage of the system
@@ -78,14 +71,16 @@ def get_memory_usage():
         }
     else:
         gpu_memory = None
-    
     return cpu_memory, gpu_memory
+ 
+
 
 
 st.cache_resource
+@profile
 def create_vector_db(data_path):
-
     """function to create vector db provided the pdf files"""
+
     print(" -- loader ... " )
     # define the docs's path
     loader = DirectoryLoader(data_path, glob="*.pdf", loader_cls=PyPDFLoader)
@@ -108,7 +103,8 @@ def create_vector_db(data_path):
     print(" -- texts OK " )   
 
     # Initialize embeddings model with GPU support
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    #device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = "cpu"
     
     # generate embeddings for each chunk
     print(" -- embeddings ... " )
@@ -129,10 +125,12 @@ def create_vector_db(data_path):
 
 
 
-st.cache_resource
+
+#st.cache_resource
+@profile
 def load_llm(temperature, max_new_tokens, top_p, top_k):
     """Load the LLM model"""
-
+    
     # Load the locally downloaded model here
     llm = CTransformers(
         model="TheBloke/Llama-2-7B-Chat-GGML",
@@ -143,20 +141,28 @@ def load_llm(temperature, max_new_tokens, top_p, top_k):
         top_k=top_k,
     )
 
+    # Check the dtype of the model's weights
+    #for name, param in llm.named_parameters():
+    #    print(f"{name}: {param.dtype}")
+    # Check if there's any underlying model you can access
+    print(llm.config)  # List all available attributes for the model
+
     # return the LLM
     return llm
 
 
-st.cache_resource
+#st.cache_resource
+@profile
 def model_retriever(vector_db):
     # Create a retriever object from the 'db' with a search configuration where
     # it retrieves up to top_k relevant splits/documents.
-    retriever = vector_db.as_retriever(search_kwargs={"k": 4})    
+    retriever = vector_db.as_retriever(search_kwargs={"k": 2})    
 
     return retriever
 
 
-st.cache_data
+#st.cache_data
+@profile
 def q_a_llm_model(retriever, llm_model):
     """
     This function loads the LLM model, gets the relevent
@@ -192,11 +198,12 @@ def page_1():
     # quick decription of the webapp
     st.markdown(
         """
-        This interactive dashboard is designed to extract any information from external documents. 
-        The LLM used is LLama 2-7B with LangChain for RAG. The user has the possibility to ask questions and the LLM provides 
-        an appropriate answer from the available documents.
-        To speed the inference time, we've used the quantized version of the model with **GGML** quantization approach.  
-        The web application can be used with only **CPU** processors.
+        This interactive dashboard allows users to extract information from external documents seamlessly. 
+        Powered by the Llama 2-7B model and LangChain for retrieval-augmented generation (RAG), the app enables users to ask questions, 
+        and the LLM delivers relevant answers based on the available documents.
+
+        To enhance performance, we've optimized the model using the GGML quantization technique, reducing inference 
+        time while maintaining accuracy. Notably, the application is designed to work efficiently even on CPU processors.
         """
     )
 
@@ -331,5 +338,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()
