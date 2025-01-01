@@ -24,11 +24,14 @@ RUN pip install --upgrade pip
 # Set the working directory inside the container
 WORKDIR /app
 
+# Copy only the requirements file first to cache dependencies layer
+COPY requirements.txt /app/
+
+# Install Python dependencies
+RUN pip install -r requirements.txt
+
 # copy all elements
 COPY . /app
-
-# install all packages in requierements.txt
-RUN pip install -r requirements.txt
  
 # listen to port 8501
 EXPOSE 8501
