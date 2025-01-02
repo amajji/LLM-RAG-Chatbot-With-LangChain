@@ -74,6 +74,7 @@ To launch the deployment of the streamlit app with docker, type the following co
 To view our app, users can browse to http://0.0.0.0:8501 or http://localhost:8501
 
 If you are interested in deploying the LLM web application on AWS. Below a step-by-step guide to follow :
+
 **Step 1**: Push Your Docker Image to GitHub Container Registry (you can also use **Amazon Elastic Container Registry (ECR)**):
 - docker build -t ghcr.io/<your-username>/<your-repo-name>:latest . : To make sure that the Dockerfile is correctly set up to run the streamlit Q&A model. 
 - echo $CR_PAT | docker login ghcr.io -u <your-username> --password-stdin : Log in to GitHub Container Registry ($CR_PAT is your GitHub Personal Access Token, which should have write:packages, read:packages, and delete:packages scope.)
@@ -88,18 +89,18 @@ If you are interested in deploying the LLM web application on AWS. Below a step-
 - eksctl create cluster --name llama-cluster --region <region> --nodes 2 --node-type t3.medium --managed : This command creates on AWS a Kubernetes cluster named llama-cluster with 2 nodes of type t2.medium.
 - aws eks --region <region> update-kubeconfig --name llama-cluster : After creating the cluster, we run the following command to update kubectl to use the newly created EKS cluster.
 
-**Step 4**: Create Kubernetes Deployment YAML
+**Step 4**: Create Kubernetes Deployment YAML:
 Create a llama-deployment.yaml to define your Kubernetes deployment for the Streamlit app. This will include details like container image, resources (CPU, memory), environment variables, etc.
 
-**Step 5**: Set Up GitHub Actions for CI/CD
+**Step 5**: Set Up GitHub Actions for CI/CD:
 In your GitHub repo, create the .github/workflows/ci-cd.yaml file. This will contain the steps for building the Docker image, pushing it to GitHub Container Registry, and deploying it to AWS EKS.
 
-**Step 6**: Apply Kubernetes Deployment
+**Step 6**: Apply Kubernetes Deployment:
 Once the GitHub Action is triggered (on push to the main branch), the deployment will be applied to the EKS cluster automatically:
 - kubectl apply -f llama-deployment.yaml
 - kubectl apply -f llam-service.yaml
 
-**Step 7** : Expose the Application (Service)
+**Step 7** : Expose the Application (Service):
 Once the deployment is successful, expose the application using a LoadBalancer. Kubernetes will automatically provision an AWS ELB (Elastic Load Balancer).
 
 You can check the service’s external IP after it's created by running:
