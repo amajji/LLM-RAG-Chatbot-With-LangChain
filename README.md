@@ -7,7 +7,7 @@ Data scientist | [Anass MAJJI](https://www.linkedin.com/in/anass-majji-729773157
 ## :monocle_face: Description
 
 <p align="center">
- <img src="images/aws.png" width="50%" />
+ <img src="images/aws2.png" width="50%" />
 </p>
 
 - In this project, we deploy on **AWS** a **LLM RAG Chatbot** with **Langchain** on a **Streamlit** web application using only **CPU**. </br>
