@@ -1,4 +1,4 @@
-# LLM RAG Chatbot (with only CPU)
+# Deployment on AWS of a Q&A LLM Chatbot using only CPU
 Data scientist | [Anass MAJJI](https://www.linkedin.com/in/anass-majji-729773157/)
 
 ***
