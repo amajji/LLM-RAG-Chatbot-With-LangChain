@@ -24,7 +24,7 @@
 
 # Import Python Libraries
 import streamlit as st
-import torch
+#import torch
 import time
 import psutil
 from memory_profiler import profile
@@ -42,9 +42,9 @@ from langchain.memory import ConversationBufferMemory
 
 st.set_page_config(layout="wide")
 #STREAMLIT_STATIC_PATH = str(pathlib.Path(st.__path__[0]) / "AI_Hackathon_Dataset/pdf")
-#STREAMLIT_STATIC_PATH = "/app/dataset/pdf"
-STREAMLIT_STATIC_PATH = "./dataset/pdf"
-
+STREAMLIT_STATIC_PATH = "/app/dataset/pdf"
+#STREAMLIT_STATIC_PATH = "./dataset/pdf"
+    
 
 #########################################################################################
 #                                Functions                                              #
@@ -52,26 +52,26 @@ STREAMLIT_STATIC_PATH = "./dataset/pdf"
 
 #st.cache_resource.clear()
 
-def get_memory_usage():
-    """
-    Function to track and print CPU and GPU memory usage
-    """
+# def get_memory_usage():
+#     """
+#     Function to track and print CPU and GPU memory usage
+#     """
 
-    # Get CPU memory usage
-    memory = psutil.virtual_memory()
-    cpu_memory = memory.percent  # Memory usage percentage of the system
+#     # Get CPU memory usage
+#     memory = psutil.virtual_memory()
+#     cpu_memory = memory.percent  # Memory usage percentage of the system
 
-    # Get GPU memory usage
-    if torch.cuda.is_available():
-        gpu_memory_allocated = torch.cuda.memory_allocated() / (1024 ** 2)  # in MB
-        gpu_memory_reserved = torch.cuda.memory_reserved() / (1024 ** 2)  # in MB
-        gpu_memory = {
-            "allocated_memory": gpu_memory_allocated,
-            "reserved_memory": gpu_memory_reserved,
-        }
-    else:
-        gpu_memory = None
-    return cpu_memory, gpu_memory
+#     # Get GPU memory usage
+#     if torch.cuda.is_available():
+#         gpu_memory_allocated = torch.cuda.memory_allocated() / (1024 ** 2)  # in MB
+#         gpu_memory_reserved = torch.cuda.memory_reserved() / (1024 ** 2)  # in MB
+#         gpu_memory = {
+#             "allocated_memory": gpu_memory_allocated,
+#             "reserved_memory": gpu_memory_reserved,
+#         }
+#     else:
+#         gpu_memory = None
+#     return cpu_memory, gpu_memory
  
 
 
@@ -115,7 +115,6 @@ def create_vector_db(data_path):
         model_kwargs={"device": device},
     )
     print(" -- embeddings OK " )
-
     
     print(" -- FAISS ... " )
     # indexing database
@@ -126,7 +125,7 @@ def create_vector_db(data_path):
 
 
 
-#st.cache_resource
+st.cache_resource
 @profile
 def load_llm(temperature, max_new_tokens, top_p, top_k):
     """Load the LLM model"""
@@ -141,17 +140,14 @@ def load_llm(temperature, max_new_tokens, top_p, top_k):
         top_k=top_k,
     )
 
-    # Check the dtype of the model's weights
-    #for name, param in llm.named_parameters():
-    #    print(f"{name}: {param.dtype}")
-    # Check if there's any underlying model you can access
-    print(llm.config)  # List all available attributes for the model
+    # List all available attributes for the model
+    print(llm.config)  
 
     # return the LLM
     return llm
 
 
-#st.cache_resource
+st.cache_resource
 @profile
 def model_retriever(vector_db):
     # Create a retriever object from the 'db' with a search configuration where
@@ -161,7 +157,7 @@ def model_retriever(vector_db):
     return retriever
 
 
-#st.cache_data
+st.cache_data
 @profile
 def q_a_llm_model(retriever, llm_model):
     """
@@ -239,13 +235,12 @@ def page_1():
     end_time = time.time()
     print(f" Creation of the vector database in {end_time - start_time: .2f} seconds ")
 
-    cpu_memory, gpu_memory = get_memory_usage()
-    print(f"CPU Memory Usage: {cpu_memory}%")
+    #cpu_memory, gpu_memory = get_memory_usage()
+    #print(f"CPU Memory Usage: {cpu_memory}%")
 
-    if gpu_memory:
-        print(f"GPU Memory Allocated: {gpu_memory['allocated_memory']} MB")
-        print(f"GPU Memory Reserved: {gpu_memory['reserved_memory']} MB")
-
+    # if gpu_memory:
+    #     print(f"GPU Memory Allocated: {gpu_memory['allocated_memory']} MB")
+    #     print(f"GPU Memory Reserved: {gpu_memory['reserved_memory']} MB")
 
 
 
@@ -259,12 +254,12 @@ def page_1():
     end_time = time.time()
     print(f" Model loading in {end_time - start_time: .2f} seconds ")
 
-    cpu_memory, gpu_memory = get_memory_usage()
-    print(f"CPU Memory Usage: {cpu_memory}%")
+    # cpu_memory, gpu_memory = get_memory_usage()
+    # print(f"CPU Memory Usage: {cpu_memory}%")
 
-    if gpu_memory:
-        print(f"GPU Memory Allocated: {gpu_memory['allocated_memory']} MB")
-        print(f"GPU Memory Reserved: {gpu_memory['reserved_memory']} MB")
+    # if gpu_memory:
+    #     print(f"GPU Memory Allocated: {gpu_memory['allocated_memory']} MB")
+    #     print(f"GPU Memory Reserved: {gpu_memory['reserved_memory']} MB")
 
 
 
@@ -291,7 +286,6 @@ def page_1():
 
         # chat history 
         #chat_history = []
-
 
         # get the result
         #result = q_a.run({"query": prompt, "chat_history": chat_history})
