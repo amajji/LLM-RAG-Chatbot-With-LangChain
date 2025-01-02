@@ -6,6 +6,10 @@ Data scientist | [Anass MAJJI](https://www.linkedin.com/in/anass-majji-729773157
 
 ## :monocle_face: Description
 
+<p align="center">
+ <img src="images/aws.png" width="50%" />
+</p>
+
 - In this project, we deploy on **AWS** a **LLM RAG Chatbot** with **Langchain** on a **Streamlit** web application using only **CPU**. </br>
 The LLM model aims at extracting relevent informations from external documents. In our case, we've used the quantized version of **Llama-2-7B** with **GGML** quantization approach, it can be used with only **CPU** processors.
 
