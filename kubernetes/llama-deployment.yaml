@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llama-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: llama
+  template:
+    metadata:
+      labels:
+        app: llama
+    spec:
+      containers:
+      - name: llama-container
+        image: ghcr.io/amajji/streamlit:latest
+        ports:
+        - containerPort: 80
+        # resources:
+        #   requests:
+        #     memory: "2Gi"   # Guaranteed memory for the container
+        #     cpu: "6"         # Guaranteed CPU for the container 
+        #   limits:
+        #     memory: "2Gi"   # Maximum memory the container can use
+        #     cpu: "8"         # Maximum CPU cores the container can use
+
