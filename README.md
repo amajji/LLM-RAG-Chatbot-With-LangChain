@@ -73,6 +73,8 @@ To launch the deployment of the streamlit app with docker, type the following co
 
 To view our app, users can browse to http://0.0.0.0:8501 or http://localhost:8501
 
+## :fire: Deployment on AWS using Github actions and Github Container Registry
+
 If you are interested in deploying the LLM web application on AWS. Below a step-by-step guide to follow :
 
 **Step 1**: Push Your Docker Image to GitHub Container Registry (you can also use **Amazon Elastic Container Registry (ECR)**):
