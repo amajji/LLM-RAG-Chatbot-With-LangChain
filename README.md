@@ -114,7 +114,7 @@ You can check the service’s external IP after it's created by running:
 
 Once the LoadBalancer is up and running, access the Streamlit app via the EXTERNAL-IP provided by the service.
 
-In order to monitor and maintain the deployment, we can use the following commands:
+In order to monitor and maintain the deployment, you can use the following commands:
 - kubectl get pods : check the status of your pods
 - kubectl logs <pod-name>: check the logs of the pod-name pod
 - kubectl scale deployment llama-deployment --replicas=3 : Sclale the deployment if needed.
