@@ -51,8 +51,8 @@ jobs:
     # Step 7: Deploy to AWS EKS
     - name: Deploy to EKS
       run: |
-        kubectl apply -f kubernetes/deployment.yaml
-        kubectl apply -f kubernetes/service.yaml
+        kubectl apply -f kubernetes/llama-deployment.yaml
+        kubectl apply -f kubernetes/llama-service.yaml
 
     # Step 8: Verify that the deployment is successful
     - name: Check the status of pods
