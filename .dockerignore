@@ -3,7 +3,6 @@
 
 # Ignore the virtual environment folder
 llamavenv/
-llmavenv/
 
 # Ignore Python bytecode files
 *.pyc
@@ -13,6 +12,4 @@ llmavenv/
 __pycache__/
 
 # Ignore other unnecessary files
-*.git
-*.gitignore
-.chainlit
+# *.gitignore
