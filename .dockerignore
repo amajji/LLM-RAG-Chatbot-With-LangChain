@@ -12,4 +12,4 @@ llamavenv/
 __pycache__/
 
 # Ignore other unnecessary files
-# *.gitignore
+*.gitignore
